@@ -16,6 +16,7 @@ import cookieParser from 'cookie-parser';
 import { authRouter } from './src/backend/authRoutes';
 import { billingRouter } from './src/backend/billingRoutes';
 import { adminRouter } from './src/backend/adminRoutes';
+import { initDatabase } from './src/backend/prisma';
 
 const app = express();
 app.use((_req,res,next)=>{res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; base-uri 'self'");next();});
@@ -222,7 +223,8 @@ app.post('/api/workspace/switch',(req,res)=>{
 });
 app.use('/api',(_req,res)=>res.status(404).json({error:'Recurso indisponível na versão offline.'}));
 async function start(){
- if(process.env.NODE_ENV!=='production'){
+  await initDatabase();
+  if(process.env.NODE_ENV!=='production'){
   const {createServer}=await import('vite');const vite=await createServer({server:{middlewareMode:true},appType:'spa'});app.use(vite.middlewares);
  }else{
   const dist=path.join(process.cwd(),'dist');app.use(express.static(dist));app.get('*',(_req,res)=>res.sendFile(path.join(dist,'index.html')));
