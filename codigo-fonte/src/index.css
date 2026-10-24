@@ -1,0 +1,293 @@
+@import "tailwindcss";
+
+@layer utilities {
+  /* Hide scrollbar for clean tab headers */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  header, nav, button, .print\:hidden {
+    display: none !important;
+  }
+
+  .der-report-page {
+    page-break-after: always !important;
+    break-after: page !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 100vh !important;
+    padding: 10mm !important;
+    margin: 0 !important;
+  }
+
+  body.pluviometria-print #root > div {
+    display: block !important;
+    min-height: 0 !important;
+    color: #111827 !important;
+  }
+
+  body.pluviometria-print main {
+    display: block !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body.pluviometria-print .pluviometria-screen {
+    display: none !important;
+  }
+
+  body.pluviometria-print .pluviometria-report-print {
+    display: flex !important;
+    flex-direction: column;
+    gap: 3mm;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    color: #111827;
+    font-family: Arial, sans-serif;
+    font-size: 7pt;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.pluviometria-print .pluv-report-title {
+    flex: 0 0 9mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e3a5f !important;
+    color: #fff !important;
+    font-size: 12pt;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+
+  body.pluviometria-print .pluv-report-metadata {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 2mm 8mm;
+    min-height: 13mm;
+    font-size: 7pt;
+    line-height: 1.4;
+  }
+
+  body.pluviometria-print .pluv-report-main {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 5mm;
+    align-items: start;
+    break-inside: avoid;
+  }
+
+  body.pluviometria-print .pluv-report-table-wrap {
+    min-width: 0;
+    break-inside: avoid;
+  }
+
+  body.pluviometria-print .pluv-report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 6.5pt;
+    line-height: 1;
+  }
+
+  body.pluviometria-print .pluv-report-table th,
+  body.pluviometria-print .pluv-report-table td {
+    border: .25mm solid #aeb8c4;
+    padding: .55mm 1mm;
+    text-align: center;
+  }
+
+  body.pluviometria-print .pluv-report-table thead th {
+    background: #1e3a5f !important;
+    color: #fff !important;
+    font-weight: 700;
+  }
+
+  body.pluviometria-print .pluv-report-table tbody tr {
+    height: 3.45mm;
+    break-inside: avoid;
+  }
+
+  body.pluviometria-print .pluv-report-table tbody tr:nth-child(even) {
+    background: #f1f5f9 !important;
+  }
+
+  body.pluviometria-print .pluv-report-table tbody tr.pluv-report-weekend {
+    color: #64748b;
+  }
+
+  body.pluviometria-print .pluv-report-table .pluv-rain-cell {
+    font-weight: 700;
+  }
+
+  body.pluviometria-print .pluv-report-legend {
+    margin-top: 1.5mm;
+    font-size: 6.5pt;
+  }
+
+  body.pluviometria-print .pluv-report-summary {
+    border: .35mm solid #1e3a5f;
+    align-self: start;
+  }
+
+  body.pluviometria-print .pluv-report-summary h2 {
+    margin: 0;
+    padding: 2mm;
+    background: #1e3a5f !important;
+    color: #fff !important;
+    text-align: center;
+    font-size: 8pt;
+  }
+
+  body.pluviometria-print .pluv-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1mm;
+    padding: 3mm 2mm;
+    border-bottom: .25mm solid #cbd5e1;
+    text-align: center;
+  }
+
+  body.pluviometria-print .pluv-summary-item strong {
+    color: #1e3a5f;
+    font-size: 11pt;
+  }
+
+  body.pluviometria-print .pluv-summary-source {
+    padding: 2mm;
+    overflow-wrap: anywhere;
+    font-size: 6pt;
+  }
+
+  body.pluviometria-print .pluv-report-chart {
+    flex: 0 0 58mm;
+    height: 58mm;
+    border: .25mm solid #cbd5e1;
+    padding: 2mm 3mm 0;
+    break-inside: avoid;
+  }
+
+  body.pluviometria-print .pluv-report-chart h2 {
+    margin: 0;
+    text-align: center;
+    font-size: 8pt;
+  }
+
+  body.pluviometria-print .pluv-report-chart svg {
+    display: block;
+    width: 100%;
+    height: 48mm;
+  }
+
+  body.pluviometria-print .pluv-report-footer {
+    flex: 0 0 auto;
+    border-top: .25mm solid #cbd5e1;
+    padding-top: 1mm;
+    color: #64748b;
+    font-size: 6pt;
+  }
+
+  body.pluviometria-print--landscape .pluviometria-report-print {
+    box-sizing: border-box;
+    height: 194mm;
+    max-height: 194mm;
+    gap: 2mm;
+    overflow: hidden;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-title {
+    flex-basis: 7mm;
+    font-size: 10pt;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-metadata {
+    min-height: 10mm;
+    font-size: 6.5pt;
+    line-height: 1.2;
+    gap: 1mm 6mm;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-main {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-table {
+    font-size: 5.8pt;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-table th,
+  body.pluviometria-print--landscape .pluv-report-table td {
+    padding: .25mm .7mm;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-table tbody tr {
+    height: 2.75mm;
+    line-height: 1;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-legend {
+    margin-top: .7mm;
+    font-size: 5.8pt;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-summary h2 {
+    padding: 1.5mm;
+    font-size: 7pt;
+  }
+
+  body.pluviometria-print--landscape .pluv-summary-item {
+    gap: .5mm;
+    padding: 1.5mm;
+  }
+
+  body.pluviometria-print--landscape .pluv-summary-item strong {
+    font-size: 9pt;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-chart {
+    box-sizing: border-box;
+    flex: 0 0 38mm;
+    height: 38mm;
+    padding: 1mm 2mm 0;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-chart h2 {
+    font-size: 7pt;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-chart svg {
+    height: 31mm;
+  }
+
+  body.pluviometria-print--landscape .pluv-report-footer {
+    font-size: 5.5pt;
+  }
+}
+
+.pluviometria-report-print {
+  display: none;
+}

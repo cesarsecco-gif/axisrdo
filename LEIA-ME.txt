@@ -1,0 +1,389 @@
+RELATORIO FOTOGRAFICO DER/PR — VERSAO 1.9.4
+
+ATUALIZAR E ABRIR
+1. Aguarde Salvo neste PC na versao anterior e exporte um backup.
+2. Feche a janela do app e a janela de comandos anterior.
+3. Extraia todo o ZIP em uma nova pasta e execute INICIAR.cmd.
+4. Confira v1.9.4 no topo. O app le a pasta de trabalho ja configurada.
+Requer Windows 10/11 x64 e navegador atualizado. Node e os modelos OCR
+estao incluidos. Nao precisa de login, chave de IA ou internet.
+Mantenha a janela de comandos aberta durante o uso.
+
+RDO EM LOTE POR PASTA
+Na aba RDO, selecione a pasta e clique Gerar todos os RDOs da pasta.
+Defina valores iniciais comuns (ou deixe em branco para preencher depois)
+e clique Criar rascunhos da pasta. Cada data com fotos marcadas gera um RDO.
+A opcao de incluir dias sem fotos abrange o intervalo entre a primeira e
+a ultima data marcada da pasta; os motivos devem ser conferidos por dia.
+Os registros ja existentes sao preservados, sem duplicacao ou alteracao
+das correcoes manuais. A tela informa quais datas ja existiam.
+Novos RDOs em lote usam somente fotos marcadas da pasta escolhida.
+RDOs individuais antigos mantem o vinculo original por data do projeto,
+conforme a origem mostrada na tela. Continua havendo um RDO por data.
+Clique em cada dia para corrigir os dados e finalizar apos a conferencia.
+Baixar PDFs da pasta (ZIP) baixa todos os RDOs relacionados de uma vez.
+Rascunhos seguem identificados como rascunhos no arquivo e no PDF.
+Espere Salvo neste PC antes de encerrar. A interface no Windows deve ser
+conferida no computador de destino; compilacao e testes do lote passaram.
+Teste para desenvolvimento: node --import tsx test-rdo-lote.mjs
+
+NOVO MODULO RDO
+1. Abra a aba 4. RDO - Diario de obras.
+2. Entre em Configuracoes do RDO e confira empresa, contrato, supervisora,
+   preposto e os responsaveis. Os valores iniciais vieram da planilha modelo.
+   As observacoes da supervisora e do fiscal tambem vem destas configuracoes.
+3. Escolha uma data (pode usar a lista de datas com fotos marcadas) e clique
+   em Criar RDO desta data. E permitido criar dias sem fotos.
+4. Selecione clima, quantidade de profissionais, suficiencia da equipe
+   e presenca do preposto. O dia da semana e marcado automaticamente.
+5. Preencha Observacoes da contratada com servicos adicionais, observacoes
+   ou o motivo do dia sem fotos.
+6. Confira os servicos vinculados. Eles vem das fotos marcadas, em ordem
+   cronologica, com texto em maiusculas e sem descricoes repetidas.
+   Para corrigir um servico, edite a descricao da foto em Gerenciar fotos.
+7. Use Visualizar folha / PDF para conferir o documento. Finalizar RDO
+   verifica os campos e o encaixe no modelo antes de mudar o estado.
+8. Clique Baixar PDF do RDO. O PDF do RDO e separado do relatorio fotografico.
+
+NUMERACAO, ATUALIZACAO E CONTINUACAO
+Um RDO por data do projeto. Numeracao inicia em 1 e segue a ordem de criacao.
+Continuacoes mantem o numero e indicam Pagina 1 de 2, Pagina 2 de 2 etc.
+A primeira pagina tem os 19 espacos para servicos do modelo. Descricoes
+longas ocupam mais linhas, mantendo o tamanho de letra. As demais paginas
+de servicos repetem o cabecalho e apresentam o texto restante. Observacoes
+extensas recebem paginas proprias de continuacao, sem cortes.
+Mudancas nas fotos vinculadas ou nas configuracoes atualizam o RDO. Se
+afetarem um RDO finalizado, ele volta a Rascunho para conferencia. Tambem
+ha Reabrir para correcoes. PDFs ja baixados devem ser gerados novamente.
+Os nomes dos responsaveis sao automaticos; assinaturas ficam para depois.
+O campo Codigo do clima permanece em branco como no modelo enviado.
+Dias sem fotos exigem justificativa nas observacoes antes de finalizar.
+
+PDF E DADOS LOCAIS
+O PDF e gerado pelo proprio aplicativo, sem Excel instalado ou internet.
+Se a previa nao abrir no navegador, use Baixar PDF para conferir o arquivo
+no leitor do Windows. O arquivo e separado do PDF fotografico existente.
+Os RDOs e suas configuracoes integram projeto.json e os backups do projeto.
+Aguarde Salvo neste PC antes de fechar. Os testes automatizados e a revisao
+visual dos PDFs passaram; a interacao no Windows precisa ser conferida
+no computador de destino.
+Para desenvolvedores: node --import tsx test-rdo.mjs, dentro de codigo-fonte.
+
+TAGS
+Em Gerenciar Fotos, clique na tag ou em + Tags no cartao ou na tabela.
+Selecione tags salvas, crie uma descricao em Adicionar ou use o lapis
+para editar o nome nesta foto. Use x para remover a tag da foto.
+Clique em Salvar tags. As descricoes ficam no catalogo do projeto para
+reutilizacao. Editar uma tag nesta foto nao altera outras fotos; o nome
+anterior continua no catalogo. Limite: 32 tags por foto, 64 caracteres por tag.
+Todas as tags e Sem tags estao no filtro superior. A categoria anterior,
+como Pavimentacao, aparece como tag inicial e pode ser removida ou editada.
+
+SUBPASTAS POR DIA
+Selecione a pasta principal e use Subpastas por dia da foto para abrir
+os registros de uma data. Todos os dias volta a mostrar o conjunto.
+No disco, as copias ficam dentro da pasta de trabalho, por exemplo:
+fotos/09_SETEMBRO_2026/12/arquivo.png
+O dia vem da DATA DO CADASTRO, nao da estampa recebida na imagem.
+Ao editar Data e salvar, o arquivo e remanejado para o novo dia. A pasta
+principal mensal permanece a escolhida; alterar o mes da data nao troca
+automaticamente a pasta principal. Confira o periodo ao editar datas.
+Datas antigas invalidas ficam em Sem-data ate serem corrigidas.
+Pastas principais com nomes iguais recebem um sufixo para evitar mistura.
+As copias antigas reconhecidas sao reorganizadas no primeiro salvamento.
+A copia antiga so e removida apos gravar o projeto e conferir seu conteudo.
+Arquivos alterados fora do app sao preservados, com aviso na tela.
+Se um arquivo no novo destino foi modificado externamente, o app solicita
+que ele seja preservado ou renomeado antes de tentar salvar novamente.
+
+EXCLUSAO EM LOTE
+Marque Excluir nas fotos ou use Selecionar todas as exibidas. Clique
+Excluir selecionadas e confirme. Mudar filtros limpa a selecao.
+Os registros saem do projeto/relatorio, mas as copias no disco permanecem.
+
+EDITOR DE ESTAMPAS
+Editar estampa permite adicionar faixa externa ou substituir uma area
+selecionada. O OCR portugues funciona offline. Revise a leitura antes
+de salvar. Na faixa, a foto e a estampa existente permanecem intactas.
+Na substituicao, a area inteira e aproximada por interpolacao dos contornos;
+isso pode apagar detalhes e NAO recupera o fundo original. Apenas a leitura
+do texto usa IA. A copia editada comeca fora do relatorio para revisao.
+
+SALVAMENTO, BACKUP E PDF
+Aguarde Salvo neste PC antes de fechar o navegador e o terminal.
+O arquivo principal continua sendo projeto.json na pasta escolhida.
+Backups e diagnostico permite criar/restaurar copias e configurar retencao
+e segundo destino. O backup automatico preserva o estado anterior ao primeiro
+salvamento da sessao/dia; use Criar backup agora para copiar o estado atual.
+Copias antes de remocoes e restauracoes sao preservadas. Monitore o espaco.
+Cada copia da lista tem um botao Excluir, com confirmacao; ela some do disco
+e, havendo segundo destino, tambem de la. O campo Maximo de backups limita
+quantas copias sao mantidas (0 = sem limite): ao ultrapassar o limite, as
+copias mais antigas sao apagadas automaticamente.
+PDF oferece relatorio completo/pagina atual, qualidade, progresso e cancelar.
+Se necessario, use Imprimir / Salvar PDF do navegador.
+O limite de gravacao do projeto continua sendo 500 MB; PNGs editados e
+originais incorporados podem aumentar bastante o tamanho.
+
+VALIDACAO E CODIGO-FONTE
+TypeScript, compilacao e testes de integracao aprovados. A interface,
+dialogos nativos e PDF ainda precisam de homologacao no Windows de destino.
+Para desenvolvimento: npm ci; npm run build:desktop.
+Testes: node --import tsx test-organizacao.mjs; test-etapa-a.mjs;
+test-rdo.mjs; test-rdo-lote.mjs; test-estampas.mjs; test-obras.mjs;
+test-pastas-backups.mjs. Executar dentro de codigo-fonte.
+
+NOVIDADES DA VERSAO 1.9.4
+AMPLIAR FOTO NA IMPORTACAO
+Na lista de fotos em Importar fotos, clique na imagem para abri-la em
+tela cheia e ler estampas, placas e dados escritos na foto. Uso:
++ e - (ou clique duplo) ampliam ate 6x; arraste a imagem para mover;
+Ajustar volta ao tamanho da tela; Esc ou clique fora fecha.
+O preview do cartao foi corrigido: a caixa ficou mais larga e a foto
+aparece inteira, sem cortar as laterais (object-contain).
+
+DATA PADRAO DO GRUPO DE FOTOS
+Na lista Fotos Prontas para Envio ha um campo "Data padrao do grupo" com
+os botoes Aplicar e Hoje. Escolha a data desejada e clique em Aplicar:
+todas as fotos da lista passam a usar essa data em vez da data atual.
+Enquanto o campo estiver preenchido, as proximas fotos importadas tambem
+recebem essa data. Depois e possivel alterar a data de uma foto uma a uma
+no proprio campo Data do cartao da foto.
+
+BUSCA DA DESCRICAO DO SERVICO
+Na importacao e na edicao da foto, ao digitar a Descricao do Servico o
+app oferece ate 3 sugestoes com as descricoes ja cadastradas nas fotos do
+projeto, comecando pelas mais recentes. Com o campo vazio aparecem as 3
+ultimas descricoes usadas. A comparacao ignora acento, maiusculas e
+espacos extras e a sugestao pode comecar em qualquer palavra do texto.
+Clique na sugestao para preencher o campo com o texto completo.
+ALTERAR A DATA DE VARIAS FOTOS DE UMA VEZ
+No Gerenciador de fotos, use a barra "Selecao em lote": marque as fotos
+pelo campo Selecionar do cartao (ou filtre pelo dia em Subpastas por dia
+da foto e clique em Selecionar todas as exibidas), escolha a Nova data e
+clique em Aplicar data as selecionadas. Todas as marcadas passam a usar a
+nova data (a hora de cada foto e mantida) e as copias sao remanejadas
+para a subpasta do novo dia ao salvar. A mesma selecao serve para o
+botao Excluir selecionadas.
+
+MOVER FOTOS DE UMA PASTA PARA OUTRA
+No Gerenciador de fotos, a barra "Selecao em lote" tem os botoes Mover
+selecionadas e Mover todas as exibidas. Com uma pasta ja escolhida no
+seletor "1. Escolher Pasta das Fotos...", o botao Mover toda a pasta leva
+o grupo inteiro. Em cada foto existe o icone de mover e, na edicao, o
+campo Pasta de destino da foto. O dialogo mostra as pastas com a
+quantidade de fotos e permite criar uma nova pasta de destino ali mesmo.
+Ao confirmar, os registros mudam de pasta e as copias em disco sao
+realocadas para a nova pasta na proxima gravacao automatica, mantendo a
+subpasta do dia da foto.
+
+REORDENAR AS FOTOS A MAO
+No Gerenciador de fotos, clique em Reordenar fotos (ao lado do botao de
+ordem). Em modo de ordenacao cada foto mostra quatro botoes: subir,
+descer, levar para o inicio e levar para o fim. O numero # do cartao e a
+posicao da foto na sequencia. A ordem escolhida vale para as paginas do
+relatorio fotografico, para o RDO e para a exportacao, e e gravada
+automaticamente a cada clique. Fotos novas entram na posicao cronologica
+sem quebrar a sequencia definida. Use Concluir para sair do modo; a
+faixa Ordem manual ativa oferece Continuar ordenando e Restaurar ordem
+cronologica, que descarta a ordem manual e volta a ordenar por data e
+hora. Enquanto houver filtro ativo, as setas reordenam apenas as fotos
+exibidas, mantendo as demais nas posicoes atuais.
+
+RDO MOSTRANDO "DIA SEM FOTOS MARCADAS"
+Cada RDO guarda a pasta de origem das fotos do dia. Se a pasta for
+removida ou recriada (por exemplo, as fotos foram movidas para outra
+pasta e a antiga foi apagada), o dia ficava apontando para uma pasta que
+nao existe mais e o RDO aparecia vazio mesmo com fotos marcadas. Agora o
+app religa o dia a pasta onde as fotos daquela data estao na hora, a
+lista de servicos volta a aparecer e a correcao e gravada sozinha na
+proxima gravacao. Se a data tiver fotos em mais de uma pasta, o dia fica
+sem vinculo e considera todas as fotos da data (RDO individual da data).
+
+OBRAS - VERSAO 1.10.0
+O primeiro item do menu lateral e Obras. Cada obra e uma pasta propria
+com projeto.json, fotos, RDOs e backups; trocar de obra nao mistura dados.
+Pasta das obras: definida uma vez no topo da tela Obras (Definir/Alterar).
+Novas obras, copias e backups importados sao criados em
+<pasta das obras>\Obras\<nome da obra>. Cada painel mostra o caminho final
+antes de confirmar e permite "Escolher outro local". O nome da obra tambem
+e o nome da pasta: nao use \ / : * ? " < > | e nao termine com ponto.
+Botoes do topo:
+- Nova obra: pede so o nome; cria uma obra vazia.
+- Abrir obra de outra pasta: usa uma obra que ja existe no PC (pasta com
+  projeto.json), sem copiar nada.
+- Importar backup: cria uma OBRA NOVA a partir de um arquivo de backup e a
+  abre; a obra aberta nao e alterada. Para voltar a obra aberta a um backup
+  anterior use Backup e Info > Restaurar esta obra para um backup anterior.
+Em cada obra: Abrir, Renomear, Duplicar (copia independente, a obra aberta
+nao muda), Mover (copia projeto, fotos e backups para <base>\Obras\<nome>,
+confere e so entao apaga do local antigo; vale para qualquer obra) e
+Remover.
+REMOVER OBRA (inclusive a obra em uso ou a unica)
+Por padrao a obra apenas sai da lista e os arquivos ficam no disco (pode
+ser aberta de novo por "Abrir obra de outra pasta"). Marcando "Apagar
+tambem os arquivos do disco", o app pede o nome da obra para confirmar,
+baixa antes um backup completo (opcao marcada por padrao) e apaga SOMENTE o
+que ele criou: projeto.json e suas copias, a pasta fotos, a pasta backups e
+backup-config.json. Outros arquivos da pasta sao preservados e listados.
+Ao remover a obra em uso, nenhuma obra fica aberta: o app mostra a tela
+"Nenhuma obra aberta" e as demais abas so voltam depois de criar ou abrir
+uma obra. Para zerar o sistema: Obras > Remover na obra em uso > marcar
+Apagar tambem os arquivos > digitar o nome > Nova obra.
+Instalacao nova comeca sem obra aberta. Pasta inacessivel e sinalizada na
+lista; o sistema nunca cria um projeto vazio no lugar dela.
+Testes para desenvolvimento: node --import tsx test-obras.mjs;
+test-sem-obra.mjs; test-remover-obra.mjs
+
+EQUIPE TECNICA PELO EXCEL - VERSAO 1.11.0
+A equipe de cada pessoa e registrada mes a mes. Na aba Equipe Tecnica:
+- Exportar planilha da equipe: gera um .xlsx com MATRICULA, NOME, FUNCAO
+  e uma coluna por mes (ABR/2026, MAI/2026...). Em cada mes esta a EQUIPE
+  da pessoa naquele mes; celula vazia = nao esteve na obra no mes.
+- Edite no Excel: nova pessoa = nova linha; novo mes = nova coluna MMM/AAAA;
+  transferencia = outra equipe na coluna do mes. Nao altere a MATRICULA de
+  quem ja existe. Se o cadastro mudou no app, exporte de novo antes.
+- Importar planilha (.xlsx ou .csv): antes de aplicar, a previa mostra
+  pessoas novas, reconhecidas pelo nome (cadastro antigo sem matricula),
+  nomes e funcoes alterados (com o mes em que a funcao muda), transferencias,
+  entradas e saidas por mes, equipes novas (confira erro de digitacao),
+  linhas recusadas e quem ficou fora da planilha. Ninguem e apagado sem
+  marcar "remover"; mes com presenca marcada nao e esvaziado.
+- Ao aplicar, o app cria antes um backup "antes-de-importar-equipe".
+- Cadastros antigos recebem automaticamente a equipe atual nos meses em
+  que havia presenca. Remover uma pessoa apaga tambem as presencas dela
+  (o aviso informa quantas).
+Teste para desenvolvimento: node --import tsx test-equipe.mjs
+
+CATALOGOS DE CAMPOS REPETITIVOS - VERSAO 1.12.0
+Item Catalogos no menu lateral. Cada campo que se repete tem uma lista
+guardada na obra: equipes, funcoes, equipamentos, placas, rodovias,
+trechos, estacas, lados, categorias, descricoes de servico e acoes.
+- Nos campos, escolha da lista ou digite um texto novo; ao salvar o
+  registro, o texto novo entra no catalogo. O icone ao lado do campo
+  abre a tela Catalogos ja na lista certa.
+- Na tela Catalogos: buscar, adicionar, editar e excluir; cada item
+  mostra quantos registros o usam.
+- EDITAR corrige o texto em TODOS os registros que o usam (fotos,
+  equipe, equipamentos, acoes e os padroes do relatorio). Um backup
+  automatico e criado antes e o app informa quantos registros mudaram.
+- Itens com grafias diferentes (por acento, maiuscula ou travessao)
+  aparecem agrupados, com o botao Unificar para adotar uma so grafia.
+- EXCLUIR nao apaga registro nenhum: so tira da lista de sugestoes. Se
+  houver registros usando, a exclusao fica bloqueada e o aviso lista os
+  registros com o botao Corrigir agora, que abre a tela filtrada neles.
+- Trazer de outra obra: copia as listas escolhidas de outra obra
+  registrada, sem alterar registros.
+Na primeira abertura os catalogos ja nascem preenchidos com o que a obra
+usa, mais sugestoes de fabrica. Campos novos nas telas de fotos: estaca e
+categoria na importacao; rodovia, trecho e categoria na edicao da foto.
+Teste para desenvolvimento: node --import tsx test-catalogos.mjs
+
+AUTO-PREENCHIMENTO DO EFETIVO PELO RDO - VERSAO 1.12.1
+Na aba Equipe Tecnica, o botao Auto-preencher com RDO usa a quantidade
+de "Profissionais em atividade" de cada folha do mes selecionado.
+- Antes de aplicar, a tela mostra o resultado: quantos dias serao
+  preenchidos, quantas presencas, quais datas ficam de fora e quantos
+  dias ja tem marcacao manual.
+- Dia sem numero de profissionais NAO e tocado: ele nao nasce vazio e
+  nada existente e apagado. Se todos os dias do mes estiverem sem
+  numero, nada e gravado e a tela diz para preencher o campo na aba
+  Diario de obras.
+- Dia ja marcado a mao: uma segunda pergunta decide se sobrescreve ou
+  mantem. Cancelar mantem as marcacoes manuais e completa so os vazios.
+- As presencas sao marcadas nas pessoas da lista do mes, na ordem da
+  grade (equipe e depois nome), em numero igual ao do RDO.
+- A linha Total Presentes mostra o total do RDO no titulo da celula e
+  fica cinza quando o RDO nao tem numero, em vez de comparar com zero.
+- Se o mes aberto nao tem RDO, a mensagem indica em quais meses ha dias.
+Depois de preencher a quantidade na aba Diario de obras, volte a Equipe
+Tecnica e clique no botao.
+Teste para desenvolvimento: node --import tsx test-equipe.mjs
+
+EQUIPE TECNICA EM DUAS ABAS E MARCA DE ATIVO - VERSAO 1.13.0
+A tela Equipe Tecnica continua sendo um item de menu so, agora com duas
+abas internas e o seletor de mes acima delas, valendo para as duas:
+- Efetivo do mes (abre primeiro): auto-preenchimento, grade diaria,
+  Total Presentes e histograma por equipe.
+- Cadastro: planilha, formulario de inclusao e tabela de pessoas.
+Cada pessoa tem uma marca de ATIVO, para quem esta de ferias, afastado
+ou desligado:
+- A marca decide SO quem entra no auto-preenchimento do efetivo.
+- Presenca ja marcada nunca muda, e marcar presenca a mao continua
+  funcionando para quem esta inativo.
+- Na atualizacao, todas as pessoas ja cadastradas passam a ativas.
+- Na grade, quem esta inativo recebe a etiqueta INATIVO ao lado do nome.
+- Ao auto-preencher, o aviso informa quantas pessoas ficaram de fora por
+  estarem inativas e quem sao. Se o mes tem gente mas nenhuma ativa, a
+  mensagem diz isso, em vez de "nao ha ninguem neste mes".
+No Cadastro ha a contagem "N de M pessoas ativas" e busca por nome,
+matricula ou funcao (ignora acento e maiusculas).
+A planilha da equipe ganhou a coluna ATIVO, depois de FUNCAO:
+- A exportacao escreve SIM ou NAO.
+- Aceita SIM/S/1/VERDADEIRO/ATIVO e NAO/N/0/FALSO/INATIVO.
+- Planilha SEM a coluna ATIVO (gerada antes desta versao) nao muda a
+  marca de ninguem.
+- Celula vazia ou texto nao entendido: a marca nao muda, e o caso
+  aparece na previa da importacao.
+- Pessoa NOVA sem informacao na coluna nasce INATIVA, de proposito.
+A marca nao tem periodo: e um liga-desliga do presente. Auto-preencher
+um mes passado usa a situacao de hoje.
+Teste para desenvolvimento: node --import tsx test-equipe.mjs
+
+EFETIVO NO RDO - VERSAO 1.14.0
+No RDO, ao lado de "Profissionais em atividade", existe o botao
+"Usar o efetivo (N)". O N aparece antes do clique e e a quantidade de
+pessoas que estao na equipe daquele mes e estao ativas.
+- Clicar marca essas N pessoas como presentes no efetivo daquele dia e
+  poe N no campo do RDO. O campo continua editavel a mao.
+- Se o dia ja tiver presencas marcadas, o app pergunta antes de trocar.
+- Se houver gente inativa na equipe do mes, o aviso diz quantas e quais,
+  para voce marcar a mao quem trabalhou.
+- Marcar ou desmarcar alguem na grade do efetivo passa a atualizar o
+  numero daquele dia no RDO. RDO finalizado nao e alterado.
+A contagem usa a marca de ATIVO de hoje. Ao preencher um RDO antigo,
+quem foi desligado depois daquela data fica de fora e aparece no aviso
+pelo nome: deixar de marcar e visivel e corrigivel; marcar quem nao
+trabalhou passaria despercebido no documento oficial.
+O botao "Auto-preencher com RDO", na aba Efetivo do mes, NAO mudou:
+ele ainda le o numero do RDO e marca as N primeiras pessoas da lista.
+Prefira o botao novo, no RDO, dia a dia.
+Teste para desenvolvimento: node --import tsx test-equipe.mjs
+
+SE APARECER "Recurso indisponivel na versao offline"
+A tela e o servidor vem juntos na pasta dist. Se a tela for nova e o
+servidor ainda antigo (arquivos atualizados com o app aberto, por
+exemplo), feche a janela do app e a janela de comandos e abra novamente
+pelo INICIAR.cmd. Na tela Obras, um aviso em vermelho mostra quando
+as versoes da interface e do servidor nao conferem.
+
+EXCLUIR PASTA DE FOTOS COM FOTOS
+Em Importar fotos, abra Editar Dados da Pasta da pasta desejada e clique
+Excluir Pasta. Se a pasta tiver fotos, o aviso informa a quantidade e, ao
+confirmar, a pasta sai da lista de opcoes, os registros dessas fotos saem
+do projeto e as copias delas sao apagadas do disco. Um backup e criado
+antes da gravacao que remove os registros. Se alguma copia nao puder ser
+apagada, o app avisa e voce pode concluir a remocao mesmo assim (essas
+copias permanecem orfas na pasta). E obrigatorio manter uma pasta.
+Teste para desenvolvimento: node --import tsx test-pastas-backups.mjs
+
+CORRECOES DA VERSAO 1.9.2
+- Configuracoes do RDO ganharam os campos empresa, contrato, supervisora,
+  observacoes da supervisora/fiscal e do inspetor, com limites iguais aos
+  do PDF; texto maior e reduzido antes de dar erro.
+- Subtitulo automatico do relatorio (rodovia/trecho/periodo) so e regerado
+  se ainda for o texto automatico; subtulos digitados nao sao sobrescritos.
+- Importar fotos: travas contra duplo clique, aviso de arquivos ignorados,
+  data sem numero invalido e selecao de arquivo limpa apos importar.
+- Pluviometria: importacao CSV valida data e valor (0 a 5000 mm), pede
+  confirmacao antes de sobrescrever, grafico com escala valida e busca de
+  servicos sem erro quando campos estao vazios.
+- Painel de confiabilidade mostra erro do servidor em vez de travar;
+  equipe/equipamentos/pluviometria/acoes so confirmam salvar quando a
+  gravacao termina (falha gera aviso e a tela continua editavel).
+- Renomear equipamento leva o historico de efetivo junto; remocao limpa
+  os registros do item.
+- Exportacao XLSX remove caracteres invalidos de XML e nomes de aba.
+- Servidor: PDF do RDO nao quebra mais com texto longo e cabecalho com
+  campos vazios recebe subtitulo automatico.
+- INICIAR.cmd avisa quando ja existe uma sessao aberta com outra versao.
