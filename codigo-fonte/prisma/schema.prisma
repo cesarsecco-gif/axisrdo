@@ -37,7 +37,8 @@ model User {
   email           String   @unique
   senhaHash       String
   cargo           String   @default("Engenheiro")
-  role            String   @default("GESTOR") // "ADMIN" | "GESTOR" | "CAMPO" | "LEITOR"
+  role            String   @default("GESTOR") // "SUPERADMIN" | "ADMIN" | "GESTOR" | "CAMPO" | "LEITOR"
+  isSuperAdmin    Boolean  @default(false)
   ativo           Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

@@ -3,7 +3,8 @@ export interface AuthUser {
   nome: string;
   email: string;
   cargo: string;
-  role: 'ADMIN' | 'GESTOR' | 'CAMPO' | 'LEITOR';
+  role: 'SUPERADMIN' | 'ADMIN' | 'GESTOR' | 'CAMPO' | 'LEITOR';
+  isSuperAdmin?: boolean;
 }
 
 export interface TenantInfo {

@@ -44,9 +44,14 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
     // Limites de acordo com o plano
-    const isCorp = plano.toUpperCase() === 'CORPORATIVO';
-    const limiteUsuarios = isCorp ? 5 : 1;
-    const limiteObras = isCorp ? 100 : 3;
+    const totalUsuariosExistentes = await prisma.user.count();
+    const isFirstUser = totalUsuariosExistentes === 0;
+    const isAxis = nomeEmpresa.toLowerCase().includes('axis');
+    const isSuperAdmin = isFirstUser || isAxis;
+
+    const isCorp = isSuperAdmin || plano.toUpperCase() === 'CORPORATIVO';
+    const limiteUsuarios = isSuperAdmin ? 9999 : (isCorp ? 5 : 1);
+    const limiteObras = isSuperAdmin ? 9999 : (isCorp ? 100 : 3);
 
     // Criar Tenant e Usuário Admin em transação
     const senhaCriptografada = await hashPassword(senha);
@@ -69,8 +74,9 @@ authRouter.post('/register', async (req: Request, res: Response) => {
           nome: nomeUsuario.trim(),
           email: emailNormalizado,
           senhaHash: senhaCriptografada,
-          cargo: 'Administrador',
-          role: 'ADMIN',
+          cargo: isSuperAdmin ? 'Gestor Master' : 'Administrador',
+          role: isSuperAdmin ? 'SUPERADMIN' : 'ADMIN',
+          isSuperAdmin,
         },
       });
 

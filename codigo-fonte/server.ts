@@ -15,6 +15,7 @@ import {createXlsx} from './xlsxWriter';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './src/backend/authRoutes';
 import { billingRouter } from './src/backend/billingRoutes';
+import { adminRouter } from './src/backend/adminRoutes';
 
 const app = express();
 app.use((_req,res,next)=>{res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; base-uri 'self'");next();});
@@ -92,6 +93,7 @@ app.use(express.json({limit:'500mb'}));
 app.use(cookieParser());
 app.use('/api/auth', authRouter);
 app.use('/api/billing', billingRouter);
+app.use('/api/admin', adminRouter);
 let obras:{noteProject:(v:any)=>void;noteWorkspace:(v?:any)=>void}={noteProject:()=>{},noteWorkspace:()=>{}};
 const reliability=setupReliability(app,{workspace:()=>workspace,revision:()=>revision,read:readProject,valid,atom,mirror,afterWrite:(v:any)=>obras.noteProject(v)});
 obras=setupObras(app,{home,workspace:()=>workspace,revision:()=>revision,activate:(next:string|null)=>{atom(preference,{path:next});workspace=next;revision=crypto.randomUUID();},readProject,validProject:valid,mirror,atom,report:(e:any,action:string)=>reliability.error(e,action),catalogosDe:(d:any)=>semearCatalogos(d).config.catalogos||{}});

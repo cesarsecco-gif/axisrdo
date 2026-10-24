@@ -9,7 +9,8 @@ export interface AuthUser {
   tenantId: string;
   email: string;
   nome: string;
-  role: 'ADMIN' | 'GESTOR' | 'CAMPO' | 'LEITOR';
+  role: 'SUPERADMIN' | 'ADMIN' | 'GESTOR' | 'CAMPO' | 'LEITOR';
+  isSuperAdmin?: boolean;
   tenantNome?: string;
   plano?: string;
 }
@@ -41,6 +42,7 @@ export function generateToken(user: AuthUser): string {
       email: user.email,
       nome: user.nome,
       role: user.role,
+      isSuperAdmin: Boolean(user.isSuperAdmin || user.role === 'SUPERADMIN'),
     },
     JWT_SECRET,
     { expiresIn: '7d' }
@@ -93,18 +95,30 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
 // -------------------------------------------------------------
 // CONTROLE DE NÍVEIS DE ACESSO (RBAC)
 // -------------------------------------------------------------
-export function requireRole(allowedRoles: ('ADMIN' | 'GESTOR' | 'CAMPO' | 'LEITOR')[]) {
+export function requireRole(allowedRoles: ('SUPERADMIN' | 'ADMIN' | 'GESTOR' | 'CAMPO' | 'LEITOR')[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Não autenticado.' });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: `Acesso negado. Ação permitida apenas para os perfis: ${allowedRoles.join(', ')}.`,
-      });
+    if (req.user.isSuperAdmin || req.user.role === 'SUPERADMIN' || allowedRoles.includes(req.user.role)) {
+      return next();
     }
 
-    next();
+    return res.status(403).json({
+      error: `Acesso negado. Ação permitida apenas para os perfis: ${allowedRoles.join(', ')}.`,
+    });
   };
+}
+
+export function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Acesso não autorizado. Faça login.' });
+  }
+
+  if (!req.user.isSuperAdmin && req.user.role !== 'SUPERADMIN') {
+    return res.status(403).json({ error: 'Acesso restrito à gestão da Axis Consultoria e Planejamento.' });
+  }
+
+  next();
 }

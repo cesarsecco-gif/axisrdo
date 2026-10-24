@@ -26,8 +26,9 @@ import { VERSION } from '../version';
 import { AuthModal } from './components/auth/AuthModal';
 import { TeamModal } from './components/auth/TeamModal';
 import { PlansModal } from './components/billing/PlansModal';
+import { AdminBackofficeModal } from './components/admin/AdminBackofficeModal';
 import { authApi, AuthUser, TenantInfo } from './services/authApi';
-import { LogIn, LogOut, Crown, Zap } from 'lucide-react';
+import { LogIn, LogOut, Crown, Zap, ShieldAlert } from 'lucide-react';
 
 async function api(url:string,options?:RequestInit){
  const r=await fetch(url,options);const data=await r.json();if(!r.ok)throw new Error(data.error||'Não foi possível concluir a operação.');return data;
@@ -157,6 +158,8 @@ export default function App(){
  const [authModalOpen, setAuthModalOpen] = useState(false);
  const [teamModalOpen, setTeamModalOpen] = useState(false);
  const [plansModalOpen, setPlansModalOpen] = useState(false);
+ const [backofficeOpen, setBackofficeOpen] = useState(false);
+ const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'admin_login'>('login');
 
  useEffect(() => {
    authApi.me().then(res => {
@@ -280,6 +283,17 @@ export default function App(){
       <div className="flex flex-wrap items-center gap-2">
         {currentUser && currentTenant ? (
           <>
+            {(currentUser.isSuperAdmin || currentUser.role === 'SUPERADMIN') && (
+              <button
+                type="button"
+                onClick={() => setBackofficeOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-md shadow-amber-500/20 transition"
+                title="Abrir Backoffice Master da Axis Consultoria"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Gestão Master Axis</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setPlansModalOpen(true)}
@@ -328,14 +342,25 @@ export default function App(){
           </div>
         </>
       ) : (
-          <button
-            type="button"
-            onClick={() => setAuthModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs font-semibold bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded-lg shadow-xs transition-colors"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Entrar / Cadastrar</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setAuthModalMode('login'); setAuthModalOpen(true); }}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded-lg shadow-xs transition-colors"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Área do Cliente</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthModalMode('admin_login'); setAuthModalOpen(true); }}
+              className="flex items-center gap-1.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/40 px-3 py-1.5 rounded-lg shadow-xs transition-colors"
+              title="Acesso Master para Gestores da Axis Consultoria"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+              <span>Gestão Axis</span>
+            </button>
+          </div>
         )}
         <button className={button + ' !bg-emerald-700 !text-white !border-emerald-700 flex items-center gap-1'} onClick={() => exportConsolidatedXlsx(config, photos, workspace, config.rdo)} disabled={!ready || importing || semObra}>
           <FileText className="w-4 h-4" /> Pacote Consolidado (XLSX)
@@ -390,9 +415,13 @@ export default function App(){
    <AuthModal
      isOpen={authModalOpen}
      onClose={() => setAuthModalOpen(false)}
+     initialMode={authModalMode}
      onSuccess={(user, tenant) => {
        setCurrentUser(user);
        setCurrentTenant(tenant);
+       if (user.isSuperAdmin || user.role === 'SUPERADMIN') {
+         setBackofficeOpen(true);
+       }
      }}
    />
 
@@ -414,6 +443,12 @@ export default function App(){
          setCurrentTenant(res.tenant);
        }).catch(() => {});
      }}
+   />
+
+   <AdminBackofficeModal
+     isOpen={backofficeOpen}
+     onClose={() => setBackofficeOpen(false)}
+     currentUser={currentUser}
    />
  </div>;
 }
