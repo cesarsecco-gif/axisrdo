@@ -7,7 +7,7 @@ import { getUserFromRequest } from './src/backend/auth';
 import { prisma } from './src/backend/prisma';
 
 export type ObraFicha={contrato:string;rodovia:string;trecho:string;empresa:string;fiscal:string;responsavel:string};
-export type Obra={id:string;nome:string;path:string;createdAt:string;lastAccessAt:string;ficha:ObraFicha;photos:number;drafts:number;lastSaved:string};
+export type Obra={id:string;nome:string;path:string;createdAt:string;lastAccessAt:string;ficha:ObraFicha;photos:number;drafts:number;lastSaved:string;tenantId?:string};
 export type ObraRow=Obra&{available:boolean;hasProject:boolean;active:boolean};
 type Registry={version:1;activeId:string|null;raiz:string|null;items:Obra[]};
 
@@ -118,7 +118,7 @@ export function setupObras(app:Express,ctx:Ctx){
    const r=JSON.parse(fs.readFileSync(file(),'utf8'));
    if(r&&r.version===1&&Array.isArray(r.items)){
     const items=r.items.filter((o:any)=>o&&typeof o.id==='string'&&typeof o.path==='string'&&path.isAbsolute(o.path)&&typeof o.nome==='string'&&o.nome.trim());
-    return {version:1,activeId:typeof r.activeId==='string'?r.activeId:null,raiz:typeof r.raiz==='string'&&path.isAbsolute(r.raiz)?r.raiz:null,items:items.map((o:any)=>({id:o.id,nome:o.nome.trim(),path:o.path,createdAt:o.createdAt||now(),lastAccessAt:o.lastAccessAt||o.createdAt||now(),ficha:{...emptyFicha(),...(o.ficha||{})},photos:Number.isFinite(o.photos)?o.photos:0,drafts:Number.isFinite(o.drafts)?o.drafts:0,lastSaved:o.lastSaved||''}))};
+    return {version:1,activeId:typeof r.activeId==='string'?r.activeId:null,raiz:typeof r.raiz==='string'&&path.isAbsolute(r.raiz)?r.raiz:null,items:items.map((o:any)=>({id:o.id,nome:o.nome.trim(),path:o.path,createdAt:o.createdAt||now(),lastAccessAt:o.lastAccessAt||o.createdAt||now(),ficha:{...emptyFicha(),...(o.ficha||{})},photos:Number.isFinite(o.photos)?o.photos:0,drafts:Number.isFinite(o.drafts)?o.drafts:0,lastSaved:o.lastSaved||'',tenantId:typeof o.tenantId==='string'?o.tenantId:undefined}))};
    }
   }catch{}
   return {version:1,activeId:null,raiz:null,items:[]};
@@ -159,9 +159,19 @@ export function setupObras(app:Express,ctx:Ctx){
   }catch(e:any){ctx.report(e,'registrar-obra-ativa');}
  }
 
- app.get('/api/obras',(_q,r)=>{
-  try{const cur=load();if(cur.items.length===0)registerActive(cur);
-   r.json({activeId:cur.activeId,raiz:cur.raiz,items:cur.items.map(o=>row(cur,o))});
+ app.get('/api/obras',(q:Request,r)=>{
+  try{
+   const user=getUserFromRequest(q);
+   const cur=load();if(cur.items.length===0)registerActive(cur);
+   let items=cur.items;
+   if(user && !user.isSuperAdmin && user.role !== 'SUPERADMIN'){
+     items = cur.items.filter(o => o.tenantId === user.tenantId || (!o.tenantId && cur.items.length <= 1));
+   }
+   let activeId = cur.activeId;
+   if (activeId && !items.some(o => o.id === activeId)) {
+     activeId = items.length > 0 ? items[0].id : null;
+   }
+   r.json({activeId,raiz:cur.raiz,items:items.map(o=>row(cur,o))});
   }catch(e:any){r.status(500).json({error:ctx.report(e,'listar-obras')});}
  });
 
@@ -222,7 +232,7 @@ export function setupObras(app:Express,ctx:Ctx){
     fs.writeFileSync(path.join(destino,'projeto.json'),JSON.stringify(project),{flag:'wx'});
    }
    fs.accessSync(destino,fs.constants.W_OK);
-   const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:Array.isArray(project.drafts)?project.drafts.length:0,lastSaved:now()};
+   const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:Array.isArray(project.drafts)?project.drafts.length:0,lastSaved:now(),tenantId:user?.tenantId};
    cur.items.push(obra);
    if(user){
      try{
@@ -283,7 +293,8 @@ export function setupObras(app:Express,ctx:Ctx){
     throw e;
    }
    fs.accessSync(destino,fs.constants.W_OK);
-   const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:project.drafts.length,lastSaved:now()};
+   const user=getUserFromRequest(q);
+   const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:project.drafts.length,lastSaved:now(),tenantId:user?.tenantId};
    cur.items.push(obra);
    ctx.activate(destino);cur.activeId=obra.id;
    save(cur);
@@ -295,9 +306,13 @@ export function setupObras(app:Express,ctx:Ctx){
   let destino='';let criado=false;
   try{
    if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
+   const user=getUserFromRequest(q);
    const nome=cleanNome(q.body&&q.body.nome);
    const cur=load();const o=cur.items.find(i=>i.id===q.params.id);
    if(!o)throw fail(404,'Obra não encontrada na lista.');
+   if(user && !user.isSuperAdmin && user.role !== 'SUPERADMIN' && o.tenantId && o.tenantId !== user.tenantId){
+     throw fail(403,'Você não tem permissão para duplicar esta obra.');
+   }
    if(!dirState(o.path).hasProject)throw fail(400,'A obra de origem não tem projeto disponível para duplicar.');
    destino=nestPath(baseDe(cur,q.body&&q.body.path),nome);
    if(cur.items.some(i=>key(i.path)===key(destino)))throw fail(409,'Esta pasta já consta na lista de obras. Escolha outro nome.');
@@ -307,7 +322,7 @@ export function setupObras(app:Express,ctx:Ctx){
    const finish=ctx.mirror(destino,project);
    fs.writeFileSync(path.join(destino,'projeto.json'),JSON.stringify(project),{flag:'wx'});
    finish();
-   const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:Array.isArray(project.drafts)?project.drafts.length:0,lastSaved:now()};
+   const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:Array.isArray(project.drafts)?project.drafts.length:0,lastSaved:now(),tenantId:user?.tenantId};
    cur.items.push(obra);save(cur);
    r.status(201).json({obra:row(cur,obra)});
   }catch(e:any){
@@ -346,8 +361,12 @@ export function setupObras(app:Express,ctx:Ctx){
  app.post('/api/obras/:id/open',(q:Request,r)=>{
   try{
    if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
+   const user=getUserFromRequest(q);
    const cur=load();const o=cur.items.find(i=>i.id===q.params.id);
    if(!o)throw fail(404,'Obra não encontrada na lista.');
+   if(user && !user.isSuperAdmin && user.role !== 'SUPERADMIN' && o.tenantId && o.tenantId !== user.tenantId){
+     throw fail(403,'Você não tem permissão para acessar esta obra.');
+   }
    if(o.id===cur.activeId)return r.json({path:ctx.workspace(),revision:ctx.revision(),unchanged:true});
    const state=dirState(o.path);
    if(!state.available)throw fail(400,'A pasta desta obra está indisponível. Reconecte o disco ou remova a obra do histórico.');
@@ -427,12 +446,15 @@ export function setupObras(app:Express,ctx:Ctx){
  app.delete('/api/obras/:id',async (q:Request,r)=>{
   try{
    const user=getUserFromRequest(q);
-   if(user&&user.role!=='ADMIN'){
+   if(user&&user.role!=='ADMIN'&&!user.isSuperAdmin&&user.role!=='SUPERADMIN'){
      throw fail(403,'Apenas Administradores têm permissão para excluir uma obra.');
    }
    if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
    const cur=load();const o=cur.items.find(i=>i.id===q.params.id);
    if(!o)throw fail(404,'Obra não encontrada na lista.');
+   if(user && !user.isSuperAdmin && user.role !== 'SUPERADMIN' && o.tenantId && o.tenantId !== user.tenantId){
+     throw fail(403,'Você não tem permissão para excluir esta obra.');
+   }
    let resultado={apagados:[] as string[],preservados:[] as string[],falhas:[] as string[],pastaRemovida:false};
    if(q.body&&q.body.apagarArquivos===true){
     if(normalizarNome(q.body.confirmacao)!==normalizarNome(o.nome))throw fail(400,'Digite o nome da obra para confirmar.');

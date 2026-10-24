@@ -23,12 +23,13 @@ import {CatalogosPage} from './components/catalogos/CatalogosPage';
 import type {CatalogoId,Tela} from './services/catalogos';
 import { createXlsx } from '../xlsxWriter';
 import { VERSION } from '../version';
+import { AuthPortal } from './components/auth/AuthPortal';
 import { AuthModal } from './components/auth/AuthModal';
 import { TeamModal } from './components/auth/TeamModal';
 import { PlansModal } from './components/billing/PlansModal';
 import { AdminBackofficeModal } from './components/admin/AdminBackofficeModal';
 import { authApi, AuthUser, TenantInfo } from './services/authApi';
-import { LogIn, LogOut, Crown, Zap, ShieldAlert } from 'lucide-react';
+import { LogIn, LogOut, Crown, Zap, ShieldAlert, Loader2 } from 'lucide-react';
 
 async function api(url:string,options?:RequestInit){
  const r=await fetch(url,options);const data=await r.json();if(!r.ok)throw new Error(data.error||'Não foi possível concluir a operação.');return data;
@@ -160,27 +161,43 @@ export default function App(){
  const [plansModalOpen, setPlansModalOpen] = useState(false);
  const [backofficeOpen, setBackofficeOpen] = useState(false);
  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'admin_login'>('login');
+ const [checkingAuth, setCheckingAuth] = useState(true);
 
  useEffect(() => {
    authApi.me().then(res => {
      setCurrentUser(res.user);
      setCurrentTenant(res.tenant);
-   }).catch(() => {});
+   }).catch(() => {
+     setCurrentUser(null);
+     setCurrentTenant(null);
+   }).finally(() => {
+     setCheckingAuth(false);
+   });
  }, []);
- useEffect(()=>{let pastaLida=false;(async()=>{
-   const w=await api('/api/workspace');setWorkspace(w);contentRevision.current=w.contentRevision;pastaLida=true;
-   if(!w.path){setReady(true);setTab('obras');return;}
-   api('/api/obras').then((o:any)=>setObraAtiva((o.items||[]).find((x:any)=>x.id===o.activeId)||null)).catch(()=>{});
-   const data=await api('/api/project');
-  if(data){
-   const c={...DEFAULT_CONFIG,...data.config};
-   c.tagCatalog=uniqueTags([...(c.tagCatalog||[]),...data.photos.flatMap(photoTags)]);
-   // Keep legacy folder IDs and memberships, but remove cloud connection settings.
-   c.driveFolderId='';c.driveFolderUrl='';c.spreadsheetId='';c.spreadsheetUrl='';
-   setConfig(c);setPhotos(data.photos);setDrafts(data.drafts||[]);contentRevision.current=data.contentRevision;
-  }
-  setReady(true);
- })().catch(e=>{setError(e.message);if(pastaLida){setFalhaAbertura(true);setTab('obras');}});},[]);
+
+ useEffect(()=>{
+   if (!currentUser) return;
+   let pastaLida=false;
+   (async()=>{
+     try {
+       const w=await api('/api/workspace');setWorkspace(w);contentRevision.current=w.contentRevision;pastaLida=true;
+       if(!w.path){setReady(true);setTab('obras');return;}
+       api('/api/obras').then((o:any)=>setObraAtiva((o.items||[]).find((x:any)=>x.id===o.activeId)||null)).catch(()=>{});
+       const data=await api('/api/project');
+       if(data){
+         const c={...DEFAULT_CONFIG,...data.config};
+         c.tagCatalog=uniqueTags([...(c.tagCatalog||[]),...data.photos.flatMap(photoTags)]);
+         // Keep legacy folder IDs and memberships, but remove cloud connection settings.
+         c.driveFolderId='';c.driveFolderUrl='';c.spreadsheetId='';c.spreadsheetUrl='';
+         setConfig(c);setPhotos(data.photos);setDrafts(data.drafts||[]);contentRevision.current=data.contentRevision;
+       }
+       setReady(true);
+     } catch(e:any) {
+       setError(e.message);
+       if(pastaLida){setFalhaAbertura(true);setTab('obras');}
+     }
+   })();
+ },[currentUser]);
   useEffect(()=>{
    if(!ready||!config.rdo)return;
    const repaired=repairRdoFolderIds(config.rdo,photos,config.availableFolders);
@@ -236,6 +253,33 @@ export default function App(){
   { id: 'catalogos', label: 'Catálogos', icon: List },
   { id: 'configuracoes', label: 'Configurações', icon: Settings }
  ];
+
+ if (checkingAuth) {
+  return (
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-4 selection:bg-amber-500 selection:text-black">
+      <AxisLogo variant="full" className="h-12 animate-pulse mb-6" />
+      <div className="flex items-center gap-3 text-slate-400 text-sm font-medium">
+        <Loader2 className="w-5 h-5 animate-spin text-amber-500" />
+        <span>Carregando AXIS RDO...</span>
+      </div>
+    </div>
+  );
+ }
+
+ if (!currentUser) {
+  return (
+    <AuthPortal
+      onSuccess={(user, tenant) => {
+        setCurrentUser(user);
+        setCurrentTenant(tenant);
+        setTab('obras');
+        if (user.isSuperAdmin || user.role === 'SUPERADMIN') {
+          setBackofficeOpen(true);
+        }
+      }}
+    />
+  );
+ }
 
  return <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col md:flex-row">
    <aside className={`print:hidden ${mobileMenuOpen ? 'block' : 'hidden'} md:flex flex-col w-full md:w-64 bg-slate-900 text-slate-300 shrink-0 border-r border-slate-800 sticky top-0 md:h-screen overflow-y-auto`}>
@@ -333,6 +377,8 @@ export default function App(){
                 await authApi.logout();
                 setCurrentUser(null);
                 setCurrentTenant(null);
+                setObraAtiva(null);
+                setReady(false);
               }}
               className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-md transition-colors"
               title="Sair"
