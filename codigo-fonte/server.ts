@@ -7,12 +7,14 @@ import { execFile } from 'node:child_process';
 import {setupReliability,VERSION} from './reliability';
 import {setupObras} from './obras';
 import {mirror,relativePhotoPath} from './photoStorage';
-import {validRdo,syncRdo,folderRdos,repairRdoFolderIds} from './src/services/rdo';
+import {validRdo,syncRdo,folderRdos,repairRdoFolderIds,rdoServices,rdoPhotos} from './src/services/rdo';
 import {semearCatalogos} from './src/services/catalogos';
 import {zipSync} from 'fflate';
 import {generateRdoPdf,generateRdoPagePdf,generateRdoCollectionPdf} from './rdoPdf';
 import {createXlsx} from './xlsxWriter';
-import {rdoServices,rdoPhotos} from './src/services/rdo';
+import cookieParser from 'cookie-parser';
+import { authRouter } from './src/backend/authRoutes';
+import { billingRouter } from './src/backend/billingRoutes';
 
 const app = express();
 app.use((_req,res,next)=>{res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; base-uri 'self'");next();});
@@ -87,6 +89,9 @@ app.use('/api',(req,res,next)=>{
   res.setHeader('Cache-Control','no-store');next();
 });
 app.use(express.json({limit:'500mb'}));
+app.use(cookieParser());
+app.use('/api/auth', authRouter);
+app.use('/api/billing', billingRouter);
 let obras:{noteProject:(v:any)=>void;noteWorkspace:(v?:any)=>void}={noteProject:()=>{},noteWorkspace:()=>{}};
 const reliability=setupReliability(app,{workspace:()=>workspace,revision:()=>revision,read:readProject,valid,atom,mirror,afterWrite:(v:any)=>obras.noteProject(v)});
 obras=setupObras(app,{home,workspace:()=>workspace,revision:()=>revision,activate:(next:string|null)=>{atom(preference,{path:next});workspace=next;revision=crypto.randomUUID();},readProject,validProject:valid,mirror,atom,report:(e:any,action:string)=>reliability.error(e,action),catalogosDe:(d:any)=>semearCatalogos(d).config.catalogos||{}});

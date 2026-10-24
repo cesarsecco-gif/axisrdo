@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// MODELO DE EMPRESAS / ORGANIZAÇÕES (TENANTS)
+// -------------------------------------------------------------
+model Tenant {
+  id              String   @id @default(cuid())
+  nome            String   // Razão Social ou Nome Fantasia
+  cnpj            String?
+  slug            String   @unique
+  logoUrl         String?  // Logo personalizada da empresa
+  plano           String   @default("INDIVIDUAL") // "INDIVIDUAL" | "CORPORATIVO"
+  limiteUsuarios  Int      @default(1)
+  limiteObras     Int      @default(3)
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]
+  obras           Obra[]
+}
+
+// -------------------------------------------------------------
+// MODELO DE USUÁRIOS E PERMISSÕES (RBAC)
+// -------------------------------------------------------------
+model User {
+  id              String   @id @default(cuid())
+  tenantId        String
+  nome            String
+  email           String   @unique
+  senhaHash       String
+  cargo           String   @default("Engenheiro")
+  role            String   @default("GESTOR") // "ADMIN" | "GESTOR" | "CAMPO" | "LEITOR"
+  ativo           Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+// -------------------------------------------------------------
+// MODELO DE OBRAS E CONTRATOS
+// -------------------------------------------------------------
+model Obra {
+  id                String   @id @default(cuid())
+  tenantId          String
+  nome              String
+  contrato          String?
+  rodoviaPadrao     String?
+  trechoPadrao      String?
+  empresaExecutora  String?
+  superintendencia  String?
+  orgaoPrincipal    String?  @default("AXIS CONSULTORIA E PLANEJAMENTO")
+  headerBannerUrl   String?  // Banner customizado de cabeçalho
+  photosPerPage     Int      @default(4)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rdos              RdoRecord[]
+  photos            PhotoRecord[]
+  equipe            EquipeRecord[]
+  catalogos         CatalogoItem[]
+
+  @@index([tenantId])
+}
+
+// -------------------------------------------------------------
+// DIÁRIOS DE OBRAS (RDOs)
+// -------------------------------------------------------------
+model RdoRecord {
+  id                String   @id @default(cuid())
+  obraId            String
+  date              String   // YYYY-MM-DD
+  number            Int
+  status            String   @default("draft") // "draft" | "final"
+  weather           String   @default("BOM") // "BOM" | "INSTÁVEL" | "CHUVOSO" | "IMPRATICÁVEL"
+  professionals     Int?
+  sufficient        String   @default("SIM") // "SIM" | "NÃO"
+  present           String   @default("SIM") // "SIM" | "NÃO"
+  contractorNotes   String   @default("")
+  supervisorNotes   String   @default("")
+  inspectorNotes    String   @default("")
+  finalSignature    String?
+  finalizedAt       DateTime?
+  reopenedReason    String?
+  folderId          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  obra              Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@unique([obraId, date])
+  @@index([obraId])
+}
+
+// -------------------------------------------------------------
+// FOTOS GEORREFERENCIADAS E CARIMBOS
+// -------------------------------------------------------------
+model PhotoRecord {
+  id                String   @id @default(cuid())
+  obraId            String
+  folderId          String
+  folderName        String
+  filePath          String   // Caminho do arquivo físico em disco / storage
+  thumbPath         String?
+  data              String   // DD/MM/AAAA
+  hora              String?  // HH:MM
+  servico           String
+  rodovia           String?
+  trecho            String?
+  estaca            String?
+  lado              String?
+  categoria         String?
+  latitude          Float?
+  longitude         Float?
+  elevacao          String?
+  manualOrder       Int?
+  includedInReport  Boolean  @default(true)
+  timestamp         BigInt?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  obra              Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@index([obraId])
+  @@index([obraId, folderId])
+}
+
+// -------------------------------------------------------------
+// EQUIPE TÉCNICA
+// -------------------------------------------------------------
+model EquipeRecord {
+  id                String   @id @default(cuid())
+  obraId            String
+  matricula         String?
+  nome              String
+  funcao            String
+  ativo             Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  obra              Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@index([obraId])
+}
+
+// -------------------------------------------------------------
+// CATÁLOGOS E PADRONIZAÇÃO DE TERMOS
+// -------------------------------------------------------------
+model CatalogoItem {
+  id                String   @id @default(cuid())
+  obraId            String
+  tipo              String   // 'equipes' | 'funcoes' | 'equipamentos' | 'placas' | 'rodovias' | 'trechos' | 'estacas' | 'lados' | 'categorias' | 'servicos' | 'acoes'
+  valor             String
+
+  obra              Obra     @relation(fields: [obraId], references: [id], onDelete: Cascade)
+
+  @@index([obraId, tipo])
+}

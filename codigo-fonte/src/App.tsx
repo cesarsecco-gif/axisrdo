@@ -23,6 +23,11 @@ import {CatalogosPage} from './components/catalogos/CatalogosPage';
 import type {CatalogoId,Tela} from './services/catalogos';
 import { createXlsx } from '../xlsxWriter';
 import { VERSION } from '../version';
+import { AuthModal } from './components/auth/AuthModal';
+import { TeamModal } from './components/auth/TeamModal';
+import { PlansModal } from './components/billing/PlansModal';
+import { authApi, AuthUser, TenantInfo } from './services/authApi';
+import { LogIn, LogOut, Crown, Zap } from 'lucide-react';
 
 async function api(url:string,options?:RequestInit){
  const r=await fetch(url,options);const data=await r.json();if(!r.ok)throw new Error(data.error||'Não foi possível concluir a operação.');return data;
@@ -147,6 +152,18 @@ export default function App(){
  // The open obra could not be read (folder missing, invalid project): keep only
  // the Obras screen usable so another obra can be opened or this one removed.
  const [falhaAbertura,setFalhaAbertura]=useState(false);
+ const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+ const [currentTenant, setCurrentTenant] = useState<TenantInfo | null>(null);
+ const [authModalOpen, setAuthModalOpen] = useState(false);
+ const [teamModalOpen, setTeamModalOpen] = useState(false);
+ const [plansModalOpen, setPlansModalOpen] = useState(false);
+
+ useEffect(() => {
+   authApi.me().then(res => {
+     setCurrentUser(res.user);
+     setCurrentTenant(res.tenant);
+   }).catch(() => {});
+ }, []);
  useEffect(()=>{let pastaLida=false;(async()=>{
    const w=await api('/api/workspace');setWorkspace(w);contentRevision.current=w.contentRevision;pastaLida=true;
    if(!w.path){setReady(true);setTab('obras');return;}
@@ -260,7 +277,66 @@ export default function App(){
           <p className="text-xs text-slate-500">{lastSaved.current && `Salvo: ${lastSaved.current}`} {drafts.length > 0 && `• ${drafts.length} rascunhos`}</p>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {currentUser && currentTenant ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setPlansModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border transition shadow-xs ${
+                currentTenant.plano === 'CORPORATIVO'
+                  ? 'bg-amber-500/10 text-amber-800 border-amber-300 hover:bg-amber-500/20'
+                  : 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
+              }`}
+              title="Gerenciar Plano e Assinatura"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-500" />
+              <span>{currentTenant.plano === 'CORPORATIVO' ? 'Corporativo' : 'Individual'}</span>
+              {currentTenant.plano === 'INDIVIDUAL' && currentUser.role === 'ADMIN' && (
+                <span className="bg-amber-500 text-white text-[9px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider flex items-center gap-0.5">
+                  <Zap className="w-2.5 h-2.5" /> Upgrade
+                </span>
+              )}
+            </button>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs">
+            <div className="flex flex-col text-right leading-tight">
+              <span className="font-bold text-slate-900">{currentUser.nome}</span>
+              <span className="text-[10px] text-sky-700 font-semibold">{currentTenant.nome} ({currentUser.role})</span>
+            </div>
+            {currentUser.role === 'ADMIN' && (
+              <button
+                type="button"
+                onClick={() => setTeamModalOpen(true)}
+                className="p-1.5 hover:bg-slate-200 text-sky-700 rounded-md transition-colors"
+                title="Gestão de Usuários / Assentos"
+              >
+                <Users className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={async () => {
+                await authApi.logout();
+                setCurrentUser(null);
+                setCurrentTenant(null);
+              }}
+              className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-md transition-colors"
+              title="Sair"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </>
+      ) : (
+          <button
+            type="button"
+            onClick={() => setAuthModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold bg-sky-700 hover:bg-sky-800 text-white px-3 py-1.5 rounded-lg shadow-xs transition-colors"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Entrar / Cadastrar</span>
+          </button>
+        )}
         <button className={button + ' !bg-emerald-700 !text-white !border-emerald-700 flex items-center gap-1'} onClick={() => exportConsolidatedXlsx(config, photos, workspace, config.rdo)} disabled={!ready || importing || semObra}>
           <FileText className="w-4 h-4" /> Pacote Consolidado (XLSX)
         </button>
@@ -309,5 +385,35 @@ export default function App(){
     </main>
    </div>
 
-   {panel&&<ReliabilityPanel onClose={()=>setPanel(false)} workspace={workspace} contentRevision={()=>contentRevision.current} flush={flush}/> }  </div>;
+   {panel&&<ReliabilityPanel onClose={()=>setPanel(false)} workspace={workspace} contentRevision={()=>contentRevision.current} flush={flush}/> }
+
+   <AuthModal
+     isOpen={authModalOpen}
+     onClose={() => setAuthModalOpen(false)}
+     onSuccess={(user, tenant) => {
+       setCurrentUser(user);
+       setCurrentTenant(tenant);
+     }}
+   />
+
+   {currentTenant && (
+     <TeamModal
+       isOpen={teamModalOpen}
+       onClose={() => setTeamModalOpen(false)}
+       tenant={currentTenant}
+     />
+   )}
+
+   <PlansModal
+     isOpen={plansModalOpen}
+     onClose={() => setPlansModalOpen(false)}
+     currentUser={currentUser}
+     onPlanUpdated={() => {
+       authApi.me().then(res => {
+         setCurrentUser(res.user);
+         setCurrentTenant(res.tenant);
+       }).catch(() => {});
+     }}
+   />
+ </div>;
 }

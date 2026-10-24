@@ -35,34 +35,35 @@ O **AXIS RDO** é uma plataforma moderna em modelo **SaaS (Software as a Service
                  │
                  ▼
 ┌─────────────────────────────────┐
-│ FASE 2: Arquitetura & Banco     │ ──► [EM ANDAMENTO 🚀]
-│ PostgreSQL, Fim do Singleton,   │
-│ Multi-tenant & Upload Direto    │
+│ FASE 2: Arquitetura & Banco     │ ──► [CONCLUÍDA ✅]
+│ Prisma ORM, Multi-tenant,       │
+│ SQLite/PostgreSQL e Isolamento  │
 └─────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────┐
-│ FASE 3: Autenticação & RBAC     │
+│ FASE 3: Autenticação & RBAC     │ ──► [CONCLUÍDA ✅]
 │ Login, JWT, Níveis de Acesso e  │
 │ Gestão de Equipe / Assentos     │
 └─────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────┐
-│ FASE 4: Planos & Monetização    │
-│ Gateway Asaas/Mercado Pago,     │
-│ Cobrança Recorrente (PIX/Cartão)│
+│ FASE 4: Planos & Monetização    │ ──► [CONCLUÍDA ✅]
+│ Planos Indiv./Corp., Assinatura │
+│ Checkout PIX e Webhooks         │
 └─────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────┐
-│ FASE 5: VPS Hostinger & DevOps  │
-│ Docker, Nginx, SSL, CI/CD       │
+│ FASE 5: VPS Hostinger & DevOps  │ ──► [CONCLUÍDA ✅]
+│ Dockerfile, Compose, Nginx SSL  │
+│ Script deploy-vps.sh            │
 └─────────────────────────────────┘
                  │
                  ▼
 ┌─────────────────────────────────┐
-│ FASE 6: Mobile PWA & Lançamento │
+│ FASE 6: Mobile PWA & Lançamento │ ──► [PRÓXIMA ETAPA 🚀]
 │ Uso offline no canteiro de obra │
 └─────────────────────────────────┘
 ```

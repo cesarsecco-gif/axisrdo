@@ -3,6 +3,8 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import type {Express, Request} from 'express';
+import { getUserFromRequest } from './src/backend/auth';
+import { prisma } from './src/backend/prisma';
 
 export type ObraFicha={contrato:string;rodovia:string;trecho:string;empresa:string;fiscal:string;responsavel:string};
 export type Obra={id:string;nome:string;path:string;createdAt:string;lastAccessAt:string;ficha:ObraFicha;photos:number;drafts:number;lastSaved:string};
@@ -179,8 +181,21 @@ export function setupObras(app:Express,ctx:Ctx){
   }catch(e:any){r.status(e.status||400).json({error:ctx.report(e,'definir-pasta-das-obras')});}
  });
 
- app.post('/api/obras',(q:Request,r)=>{
+ app.post('/api/obras',async (q:Request,r)=>{
   try{
+   const user=getUserFromRequest(q);
+   if(user){
+     if(user.role==='CAMPO'||user.role==='LEITOR'){
+       throw fail(403,'Apenas Administradores ou Gestores de Obra possuem permissão para criar novas obras.');
+     }
+     const tenant=await prisma.tenant.findUnique({where:{id:user.tenantId}});
+     if(tenant){
+       const count=await prisma.obra.count({where:{tenantId:user.tenantId}});
+       if(count>=tenant.limiteObras){
+         throw fail(403,`Limite de obras atingido (${count}/${tenant.limiteObras}) para o seu ${tenant.plano==='INDIVIDUAL'?'Plano Individual':'plano'}. Faça upgrade para o Plano Corporativo para gerenciar obras ilimitadas.`);
+       }
+     }
+   }
    const nome=cleanNome(q.body&&q.body.nome);
    const mode=q.body&&q.body.mode;
    if(!['new','open'].includes(mode))throw fail(400,'Escolha criar uma nova obra ou abrir um projeto existente.');
@@ -209,6 +224,31 @@ export function setupObras(app:Express,ctx:Ctx){
    fs.accessSync(destino,fs.constants.W_OK);
    const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:Array.isArray(project.drafts)?project.drafts.length:0,lastSaved:now()};
    cur.items.push(obra);
+   if(user){
+     try{
+       await prisma.obra.upsert({
+         where:{id:obra.id},
+         create:{
+           id:obra.id,
+           tenantId:user.tenantId,
+           nome:obra.nome,
+           contrato:obra.ficha.contrato||'',
+           rodoviaPadrao:obra.ficha.rodovia||'',
+           trechoPadrao:obra.ficha.trecho||'',
+           empresaExecutora:obra.ficha.empresa||'',
+         },
+         update:{
+           nome:obra.nome,
+           contrato:obra.ficha.contrato||'',
+           rodoviaPadrao:obra.ficha.rodovia||'',
+           trechoPadrao:obra.ficha.trecho||'',
+           empresaExecutora:obra.ficha.empresa||'',
+         }
+       });
+     }catch(dbErr){
+       console.warn('[DB Obra Sync Warning]',dbErr);
+     }
+   }
    const open=Boolean(q.body&&q.body.open);
    if(open){ctx.activate(destino);cur.activeId=obra.id;}
    save(cur);
@@ -384,8 +424,12 @@ export function setupObras(app:Express,ctx:Ctx){
   }catch(e:any){r.status(e.status||400).json({error:ctx.report(e,'renomear-obra')});}
  });
 
- app.delete('/api/obras/:id',(q:Request,r)=>{
+ app.delete('/api/obras/:id',async (q:Request,r)=>{
   try{
+   const user=getUserFromRequest(q);
+   if(user&&user.role!=='ADMIN'){
+     throw fail(403,'Apenas Administradores têm permissão para excluir uma obra.');
+   }
    if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
    const cur=load();const o=cur.items.find(i=>i.id===q.params.id);
    if(!o)throw fail(404,'Obra não encontrada na lista.');
@@ -399,6 +443,9 @@ export function setupObras(app:Express,ctx:Ctx){
    cur.items=cur.items.filter(i=>i.id!==o.id);
    if(ativa){cur.activeId=null;ctx.activate(null);}
    save(cur);
+   if(user){
+     await prisma.obra.deleteMany({where:{id:o.id,tenantId:user.tenantId}}).catch(()=>{});
+   }
    r.json({success:true,semObra:ativa,path:o.path,...resultado});
   }catch(e:any){r.status(e.status||400).json({error:ctx.report(e,'remover-obra'),...(e.detalhe||{})});}
  });
