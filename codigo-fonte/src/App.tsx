@@ -273,9 +273,6 @@ export default function App(){
         setCurrentUser(user);
         setCurrentTenant(tenant);
         setTab('obras');
-        if (user.isSuperAdmin || user.role === 'SUPERADMIN') {
-          setBackofficeOpen(true);
-        }
       }}
     />
   );

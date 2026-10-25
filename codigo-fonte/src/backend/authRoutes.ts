@@ -88,7 +88,8 @@ authRouter.post('/register', async (req: Request, res: Response) => {
       tenantId: resultado.tenant.id,
       email: resultado.user.email,
       nome: resultado.user.nome,
-      role: 'ADMIN',
+      role: resultado.user.role as any,
+      isSuperAdmin: resultado.user.isSuperAdmin,
       tenantNome: resultado.tenant.nome,
       plano: resultado.tenant.plano,
     });
@@ -109,6 +110,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
         email: resultado.user.email,
         cargo: resultado.user.cargo,
         role: resultado.user.role,
+        isSuperAdmin: resultado.user.isSuperAdmin,
       },
       tenant: {
         id: resultado.tenant.id,
@@ -163,6 +165,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       email: user.email,
       nome: user.nome,
       role: user.role as any,
+      isSuperAdmin: Boolean(user.isSuperAdmin || user.role === 'SUPERADMIN'),
       tenantNome: user.tenant.nome,
       plano: user.tenant.plano,
     });
@@ -182,6 +185,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
         email: user.email,
         cargo: user.cargo,
         role: user.role,
+        isSuperAdmin: Boolean(user.isSuperAdmin || user.role === 'SUPERADMIN'),
       },
       tenant: {
         id: user.tenant.id,
@@ -236,6 +240,7 @@ authRouter.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         email: user.email,
         cargo: user.cargo,
         role: user.role,
+        isSuperAdmin: Boolean(user.isSuperAdmin || user.role === 'SUPERADMIN'),
       },
       tenant: {
         id: user.tenant.id,

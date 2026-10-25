@@ -111,14 +111,25 @@ export function requireRole(allowedRoles: ('SUPERADMIN' | 'ADMIN' | 'GESTOR' | '
   };
 }
 
-export function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction) {
+export async function requireSuperAdmin(req: AuthRequest, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ error: 'Acesso não autorizado. Faça login.' });
   }
 
-  if (!req.user.isSuperAdmin && req.user.role !== 'SUPERADMIN') {
-    return res.status(403).json({ error: 'Acesso restrito à gestão da Axis Consultoria e Planejamento.' });
+  if (req.user.isSuperAdmin || req.user.role === 'SUPERADMIN') {
+    return next();
   }
 
-  next();
+  // Fallback para conferir no banco de dados SQLite caso o token em cookie seja antigo
+  try {
+    const { prisma } = await import('./prisma');
+    const dbUser = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (dbUser && (dbUser.isSuperAdmin || dbUser.role === 'SUPERADMIN')) {
+      req.user.isSuperAdmin = true;
+      req.user.role = 'SUPERADMIN';
+      return next();
+    }
+  } catch {}
+
+  return res.status(403).json({ error: 'Acesso restrito à gestão da Axis Consultoria e Planejamento.' });
 }
