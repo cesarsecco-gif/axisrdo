@@ -237,7 +237,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder={mode === 'admin_login' ? 'admin@axisconsultoria.com.br' : 'seu@email.com'}
+                        placeholder={mode === 'admin_login' ? 'admin@axisconsplan.com.br' : 'seu@email.com'}
                         className={`w-full pl-9 pr-3 py-2.5 bg-slate-800/90 border rounded-xl text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none transition ${
                           mode === 'admin_login'
                             ? 'border-slate-700 focus:border-amber-500'

@@ -189,7 +189,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={mode === 'admin_login' ? 'admin@axisconsultoria.com.br' : 'seu@email.com'}
+                    placeholder={mode === 'admin_login' ? 'admin@axisconsplan.com.br' : 'seu@email.com'}
                     className={`w-full pl-9 pr-3 py-2.5 border rounded-xl text-xs sm:text-sm focus:outline-none transition ${
                       mode === 'admin_login'
                         ? 'bg-slate-800 border-slate-700 text-white focus:border-amber-500'
