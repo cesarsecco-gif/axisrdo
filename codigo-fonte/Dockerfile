@@ -61,4 +61,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/api/health || exit 1
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/server.cjs"]
+CMD ["node", "dist/server.cjs"]
