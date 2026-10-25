@@ -96,9 +96,10 @@ adminRouter.post('/tenants', async (req: AuthRequest, res: Response) => {
       adminSenha,
     } = req.body;
 
-    if (!nomeEmpresa?.trim() || !adminNome?.trim() || !adminEmail?.trim() || !adminSenha?.trim()) {
+    if (!nomeEmpresa?.trim() || !adminNome?.trim() || !adminEmail?.trim() || typeof adminSenha !== 'string' || !adminSenha.trim()) {
       return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (Empresa, Nome do Gestor, E-mail e Senha).' });
     }
+    if (adminSenha.length < 12 || adminSenha.length > 128) return res.status(400).json({ error: 'A senha inicial deve ter entre 12 e 128 caracteres.' });
 
     const emailNormalizado = adminEmail.trim().toLowerCase();
     const usuarioExistente = await prisma.user.findUnique({
@@ -165,6 +166,19 @@ adminRouter.post('/tenants', async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     return res.status(500).json({ error: 'Erro ao cadastrar empresa: ' + (error.message || 'Erro interno') });
+  }
+});
+
+adminRouter.get('/tenants/:id/obras', async (req: AuthRequest, res: Response) => {
+  try {
+    const obras = await prisma.obra.findMany({
+      where: { tenantId: req.params.id },
+      select: { id: true, nome: true, contrato: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return res.json({ obras });
+  } catch {
+    return res.status(500).json({ error: 'Não foi possível listar os ambientes da organização.' });
   }
 });
 
@@ -246,7 +260,8 @@ adminRouter.patch('/users/:id', async (req: AuthRequest, res: Response) => {
     if (typeof ativo === 'boolean') {
       data.ativo = ativo;
     }
-    if (novaSenha?.trim()) {
+    if (typeof novaSenha === 'string' && novaSenha.trim()) {
+      if (novaSenha.trim().length < 12 || novaSenha.trim().length > 128) return res.status(400).json({ error: 'A nova senha deve ter entre 12 e 128 caracteres.' });
       data.senhaHash = await hashPassword(novaSenha.trim());
     }
 

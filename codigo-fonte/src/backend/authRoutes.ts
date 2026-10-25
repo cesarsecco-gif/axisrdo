@@ -15,12 +15,19 @@ export const authRouter = Router();
 // CADASTRO DE NOVA EMPRESA E USUÁRIO ADMINISTRADOR
 // -------------------------------------------------------------
 authRouter.post('/register', async (req: Request, res: Response) => {
+  if (process.env.ALLOW_NETWORK === 'true') {
+    return res.status(503).json({ error: 'O cadastro comercial será liberado após a integração do pagamento. Peça à administração da plataforma para criar sua conta.' });
+  }
   try {
-    const { nomeEmpresa, nomeUsuario, email, senha, cnpj, plano = 'INDIVIDUAL' } = req.body;
+    const { nomeEmpresa, nomeUsuario, email, senha, cnpj } = req.body;
+    if (req.body?.plano && req.body.plano !== 'INDIVIDUAL') {
+      return res.status(409).json({ error: 'A contratação corporativa ainda precisa ser ativada pela área comercial.' });
+    }
 
-    if (!nomeEmpresa?.trim() || !nomeUsuario?.trim() || !email?.trim() || !senha?.trim()) {
+    if (!nomeEmpresa?.trim() || !nomeUsuario?.trim() || !email?.trim() || typeof senha !== 'string' || !senha.trim()) {
       return res.status(400).json({ error: 'Preencha todos os campos obrigatórios (empresa, nome, e-mail e senha).' });
     }
+    if (senha.length < 12 || senha.length > 128) return res.status(400).json({ error: 'A senha deve ter entre 12 e 128 caracteres.' });
 
     const emailNormalizado = email.trim().toLowerCase();
 
@@ -44,14 +51,11 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
 
     // Limites de acordo com o plano
-    const totalUsuariosExistentes = await prisma.user.count();
-    const isFirstUser = totalUsuariosExistentes === 0;
-    const isAxis = nomeEmpresa.toLowerCase().includes('axis');
-    const isSuperAdmin = isFirstUser || isAxis;
-
-    const isCorp = isSuperAdmin || plano.toUpperCase() === 'CORPORATIVO';
-    const limiteUsuarios = isSuperAdmin ? 9999 : (isCorp ? 5 : 1);
-    const limiteObras = isSuperAdmin ? 9999 : (isCorp ? 100 : 3);
+    // Cadastro público nunca concede privilégios administrativos nem ativa planos pagos sem confirmação do gateway.
+    const isSuperAdmin = false;
+    const isCorp = false;
+    const limiteUsuarios = 1;
+    const limiteObras = 3;
 
     // Criar Tenant e Usuário Admin em transação
     const senhaCriptografada = await hashPassword(senha);
@@ -133,7 +137,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
 // -------------------------------------------------------------
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, senha } = req.body;
+    const { email, senha, area = 'client' } = req.body;
 
     if (!email?.trim() || !senha?.trim()) {
       return res.status(400).json({ error: 'Informe seu e-mail e sua senha.' });
@@ -157,6 +161,11 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     const senhaCorreta = await comparePassword(senha, user.senhaHash);
     if (!senhaCorreta) {
       return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+    }
+
+    const isPlatformAdmin = Boolean(user.isSuperAdmin || user.role === 'SUPERADMIN');
+    if (!['client', 'platform'].includes(area) || (area === 'platform' && !isPlatformAdmin) || (area === 'client' && isPlatformAdmin)) {
+      return res.status(403).json({ error: area === 'platform' ? 'Esta conta não tem acesso administrativo à plataforma.' : 'Use a área de Gestão da Plataforma para esta conta.' });
     }
 
     const token = generateToken({
@@ -290,9 +299,10 @@ authRouter.post('/team/invite', authenticate, requireRole(['ADMIN']), async (req
   try {
     const { nome, email, senha, cargo = 'Engenheiro', role = 'GESTOR' } = req.body;
 
-    if (!nome?.trim() || !email?.trim() || !senha?.trim()) {
+    if (!nome?.trim() || !email?.trim() || typeof senha !== 'string' || !senha.trim()) {
       return res.status(400).json({ error: 'Informe o nome, e-mail e senha inicial do membro.' });
     }
+    if (senha.length < 12 || senha.length > 128) return res.status(400).json({ error: 'A senha inicial deve ter entre 12 e 128 caracteres.' });
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.user!.tenantId },

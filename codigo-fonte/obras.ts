@@ -12,7 +12,8 @@ export type ObraRow=Obra&{available:boolean;hasProject:boolean;active:boolean};
 type Registry={version:1;activeId:string|null;raiz:string|null;items:Obra[]};
 
 type Ctx={
- home:string;
+ home:()=>string;
+ commercial:()=>boolean;
  workspace:()=>string|null;
  revision:()=>string;
  activate:(next:string|null)=>void;
@@ -60,7 +61,8 @@ function sugestaoRaiz(workspace:string|null){
  if(workspace){const pai=path.dirname(workspace);if(path.basename(pai).toLowerCase()==='obras')return path.dirname(pai);}
  return path.join(os.homedir(),'Documents','AXIS RDO');
 }
-function baseDe(reg:{raiz:string|null},informado:any){
+function baseDe(reg:{raiz:string|null},informado:any,ctx?:Ctx){
+ if(ctx?.commercial())return path.join(ctx.home(),'Obras');
  if(informado!==undefined&&informado!==null&&informado!=='')return cleanPath(informado);
  if(!reg.raiz)throw fail(400,'Defina a pasta das obras ou escolha outro local.');
  return reg.raiz;
@@ -112,7 +114,7 @@ function nested(a:string,b:string){
 }
 
 export function setupObras(app:Express,ctx:Ctx){
- const file=()=>path.join(ctx.home,'obras.json');
+ const file=()=>path.join(ctx.home(),'obras.json');
  function load():Registry{
   try{
    const r=JSON.parse(fs.readFileSync(file(),'utf8'));
@@ -122,6 +124,14 @@ export function setupObras(app:Express,ctx:Ctx){
    }
   }catch{}
   return {version:1,activeId:null,raiz:null,items:[]};
+ }
+ async function assertCanCreate(user:any,reg:Registry){
+  if(!user)return;
+  if(user.role==='CAMPO'||user.role==='LEITOR')throw fail(403,'Apenas Administradores ou Gestores de Obra podem criar ambientes.');
+  const tenant=await prisma.tenant.findUnique({where:{id:user.tenantId}});
+  if(!tenant)throw fail(403,'A organização da conta não está disponível.');
+  const count=reg.items.filter(o=>o.tenantId===user.tenantId).length;
+  if(count>=tenant.limiteObras)throw fail(403,`Limite de ambientes atingido (${count}/${tenant.limiteObras}) para o plano ${tenant.plano}.`);
  }
  function save(reg:Registry){
   try{reg.items.sort((a,b)=>(a.id===reg.activeId?-1:b.id===reg.activeId?1:0)||b.lastAccessAt.localeCompare(a.lastAccessAt));ctx.atom(file(),reg);}
@@ -161,12 +171,8 @@ export function setupObras(app:Express,ctx:Ctx){
 
  app.get('/api/obras',(q:Request,r)=>{
   try{
-   const user=getUserFromRequest(q);
    const cur=load();if(cur.items.length===0)registerActive(cur);
-   let items=cur.items;
-   if(user && !user.isSuperAdmin && user.role !== 'SUPERADMIN'){
-     items = cur.items.filter(o => o.tenantId === user.tenantId || (!o.tenantId && cur.items.length <= 1));
-   }
+   const items=cur.items;
    let activeId = cur.activeId;
    if (activeId && !items.some(o => o.id === activeId)) {
      activeId = items.length > 0 ? items[0].id : null;
@@ -176,13 +182,13 @@ export function setupObras(app:Express,ctx:Ctx){
  });
 
  app.get('/api/obras/raiz',(_q,r)=>{
-  try{r.json({raiz:load().raiz,sugestao:sugestaoRaiz(ctx.workspace())});}
+  try{const raiz=ctx.commercial()?path.join(ctx.home(),'Obras'):load().raiz;r.json({raiz,sugestao:raiz||sugestaoRaiz(ctx.workspace())});}
   catch(e:any){r.status(500).json({error:ctx.report(e,'consultar-pasta-das-obras')});}
  });
 
  app.put('/api/obras/raiz',(q:Request,r)=>{
   try{
-   const raiz=cleanPath(q.body&&q.body.raiz);
+   const raiz=ctx.commercial()?path.join(ctx.home(),'Obras'):cleanPath(q.body&&q.body.raiz);
    fs.mkdirSync(raiz,{recursive:true});
    if(!fs.statSync(raiz).isDirectory())throw fail(400,'O caminho escolhido não é uma pasta.');
    fs.accessSync(raiz,fs.constants.W_OK);
@@ -194,22 +200,12 @@ export function setupObras(app:Express,ctx:Ctx){
  app.post('/api/obras',async (q:Request,r)=>{
   try{
    const user=getUserFromRequest(q);
-   if(user){
-     if(user.role==='CAMPO'||user.role==='LEITOR'){
-       throw fail(403,'Apenas Administradores ou Gestores de Obra possuem permissão para criar novas obras.');
-     }
-     const tenant=await prisma.tenant.findUnique({where:{id:user.tenantId}});
-     if(tenant){
-       const count=await prisma.obra.count({where:{tenantId:user.tenantId}});
-       if(count>=tenant.limiteObras){
-         throw fail(403,`Limite de obras atingido (${count}/${tenant.limiteObras}) para o seu ${tenant.plano==='INDIVIDUAL'?'Plano Individual':'plano'}. Faça upgrade para o Plano Corporativo para gerenciar obras ilimitadas.`);
-       }
-     }
-   }
    const nome=cleanNome(q.body&&q.body.nome);
    const mode=q.body&&q.body.mode;
    if(!['new','open'].includes(mode))throw fail(400,'Escolha criar uma nova obra ou abrir um projeto existente.');
+   if(ctx.commercial()&&mode!=='new')throw fail(403,'Na versão comercial, só é possível criar obras dentro do ambiente da organização.');
    const cur=load();
+   await assertCanCreate(user,cur);
    let destino:string;
    if(mode==='open'){
     const pasta=cleanPath(q.body&&q.body.path);
@@ -219,7 +215,7 @@ export function setupObras(app:Express,ctx:Ctx){
      if(!dirState(candidata).hasProject)throw fail(400,'A pasta escolhida não contém projeto.json (nem em Obras\\'+nome+'). Escolha a pasta do projeto ou crie uma nova obra.');
      destino=candidata;
     }
-   }else destino=nestPath(baseDe(cur,q.body&&q.body.path),nome);
+   }else destino=nestPath(baseDe(cur,q.body&&q.body.path,ctx),nome);
    if(cur.items.some(i=>key(i.path)===key(destino)))throw fail(409,'Esta pasta já consta na lista de obras. Abra a obra existente.');
    let project:any;
    if(mode==='open'){
@@ -266,12 +262,15 @@ export function setupObras(app:Express,ctx:Ctx){
   }catch(e:any){r.status(e.status||400).json({error:ctx.report(e,'criar-obra')});}
  });
 
- app.post('/api/obras/import',(q:Request,r)=>{
+ app.post('/api/obras/import',async (q:Request,r)=>{
   let destino='';
   try{
+   const user=getUserFromRequest(q);
+   if(user&&(user.role==='CAMPO'||user.role==='LEITOR'))throw fail(403,'Apenas Administradores ou Gestores de Obra podem importar ambientes.');
    if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
    const nome=cleanNome(q.body&&q.body.nome);
-   const base=baseDe(load(),q.body&&q.body.path);
+   const cur=load();await assertCanCreate(user,cur);
+   const base=baseDe(cur,q.body&&q.body.path,ctx);
    const project=q.body&&q.body.project;
    if(!ctx.validProject(project))throw fail(400,'Arquivo de backup inválido ou incompatível com esta versão.');
    if(q.body.backupHash!==undefined){
@@ -280,7 +279,6 @@ export function setupObras(app:Express,ctx:Ctx){
    }
    if(!Array.isArray(project.drafts))project.drafts=[];
    destino=nestPath(base,nome);
-   const cur=load();
    if(cur.items.some(i=>key(i.path)===key(destino)))throw fail(409,'Esta pasta já consta na lista de obras. Escolha outra pasta base.');
    if(fs.existsSync(destino))throw fail(409,'A pasta destino já existe. Escolha outra pasta base para preservar os arquivos existentes.');
    fs.mkdirSync(destino,{recursive:true});
@@ -293,16 +291,16 @@ export function setupObras(app:Express,ctx:Ctx){
     throw e;
    }
    fs.accessSync(destino,fs.constants.W_OK);
-   const user=getUserFromRequest(q);
    const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:project.drafts.length,lastSaved:now(),tenantId:user?.tenantId};
    cur.items.push(obra);
+   if(user)await prisma.obra.upsert({where:{id:obra.id},create:{id:obra.id,tenantId:user.tenantId,nome:obra.nome,contrato:obra.ficha.contrato||'',rodoviaPadrao:obra.ficha.rodovia||'',trechoPadrao:obra.ficha.trecho||'',empresaExecutora:obra.ficha.empresa||''},update:{nome:obra.nome}});
    ctx.activate(destino);cur.activeId=obra.id;
    save(cur);
    r.status(201).json({obra:row(cur,obra),path:ctx.workspace(),revision:ctx.revision()});
   }catch(e:any){r.status(e.status||400).json({error:ctx.report(e,'importar-obra-backup')});}
  });
 
- app.post('/api/obras/:id/duplicate',(q:Request,r)=>{
+ app.post('/api/obras/:id/duplicate',async (q:Request,r)=>{
   let destino='';let criado=false;
   try{
    if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
@@ -310,11 +308,12 @@ export function setupObras(app:Express,ctx:Ctx){
    const nome=cleanNome(q.body&&q.body.nome);
    const cur=load();const o=cur.items.find(i=>i.id===q.params.id);
    if(!o)throw fail(404,'Obra não encontrada na lista.');
+   await assertCanCreate(user,cur);
    if(user && !user.isSuperAdmin && user.role !== 'SUPERADMIN' && o.tenantId && o.tenantId !== user.tenantId){
      throw fail(403,'Você não tem permissão para duplicar esta obra.');
    }
    if(!dirState(o.path).hasProject)throw fail(400,'A obra de origem não tem projeto disponível para duplicar.');
-   destino=nestPath(baseDe(cur,q.body&&q.body.path),nome);
+   destino=nestPath(baseDe(cur,q.body&&q.body.path,ctx),nome);
    if(cur.items.some(i=>key(i.path)===key(destino)))throw fail(409,'Esta pasta já consta na lista de obras. Escolha outro nome.');
    if(fs.existsSync(destino))throw fail(409,'A pasta '+destino+' já existe. Escolha outro nome para a cópia.');
    const project=ctx.readProject(o.path);
@@ -323,7 +322,9 @@ export function setupObras(app:Express,ctx:Ctx){
    fs.writeFileSync(path.join(destino,'projeto.json'),JSON.stringify(project),{flag:'wx'});
    finish();
    const obra:Obra={id:crypto.randomUUID(),nome,path:destino,createdAt:now(),lastAccessAt:now(),ficha:fichaOf(project.config),photos:project.photos.length,drafts:Array.isArray(project.drafts)?project.drafts.length:0,lastSaved:now(),tenantId:user?.tenantId};
-   cur.items.push(obra);save(cur);
+   cur.items.push(obra);
+   if(user)await prisma.obra.upsert({where:{id:obra.id},create:{id:obra.id,tenantId:user.tenantId,nome:obra.nome,contrato:obra.ficha.contrato||'',rodoviaPadrao:obra.ficha.rodovia||'',trechoPadrao:obra.ficha.trecho||'',empresaExecutora:obra.ficha.empresa||''},update:{nome:obra.nome}});
+   save(cur);
    r.status(201).json({obra:row(cur,obra)});
   }catch(e:any){
    if(criado){try{fs.rmSync(destino,{recursive:true,force:true});}catch{}}
@@ -381,6 +382,7 @@ export function setupObras(app:Express,ctx:Ctx){
  });
 
   app.post('/api/obras/:id/move',(q:Request,r)=>{
+   if(ctx.commercial())return r.status(403).json({error:'Na versão comercial, as obras permanecem no ambiente seguro da organização.'});
    try{
     if((q.body&&q.body.revision)!==ctx.revision())throw fail(409,'A pasta mudou. Reabra o aplicativo.');
     const mode=q.body&&q.body.mode;

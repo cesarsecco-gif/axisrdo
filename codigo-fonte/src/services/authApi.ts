@@ -48,7 +48,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 export const authApi = {
   me: () => request<{ user: AuthUser; tenant: TenantInfo }>('/api/auth/me'),
 
-  login: (dados: { email: string; senha: string }) =>
+  login: (dados: { email: string; senha: string; area?: 'client' | 'platform' }) =>
     request<{ success: boolean; user: AuthUser; tenant: TenantInfo; token: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify(dados),

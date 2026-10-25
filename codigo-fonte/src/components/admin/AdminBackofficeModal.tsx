@@ -41,6 +41,7 @@ export const AdminBackofficeModal: React.FC<AdminBackofficeModalProps> = ({
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
   const [tenants, setTenants] = useState<TenantAdminRow[]>([]);
   const [users, setUsers] = useState<UserAdminRow[]>([]);
+  const [tenantObras, setTenantObras] = useState<{ tenant: TenantAdminRow; obras: { id: string; nome: string; contrato: string | null; updatedAt: string }[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -88,6 +89,15 @@ export const AdminBackofficeModal: React.FC<AdminBackofficeModalProps> = ({
       setError(err.message || 'Erro ao carregar dados do Backoffice.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenTenantWorks = async (tenant: TenantAdminRow) => {
+    try {
+      const result = await adminApi.getTenantWorks(tenant.id);
+      setTenantObras({ tenant, obras: result.obras });
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível listar os ambientes desta organização.');
     }
   };
 
@@ -399,7 +409,9 @@ export const AdminBackofficeModal: React.FC<AdminBackofficeModalProps> = ({
                         {t.totalUsuarios} / {t.limiteUsuarios >= 999 ? 'Ilimitado' : t.limiteUsuarios}
                       </td>
                       <td className="p-3">
-                        {t.totalObras} / {t.limiteObras >= 999 ? 'Ilimitado' : t.limiteObras}
+                        <button onClick={() => handleOpenTenantWorks(t)} className="underline decoration-dotted hover:text-white" title="Ver ambientes desta organização">
+                          {t.totalObras} / {t.limiteObras >= 999 ? 'Ilimitado' : t.limiteObras}
+                        </button>
                       </td>
                       <td className="p-3">
                         <span
@@ -653,8 +665,9 @@ export const AdminBackofficeModal: React.FC<AdminBackofficeModalProps> = ({
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">Senha Provisória *</label>
                     <input
-                      type="text"
+                      type="password"
                       required
+                      minLength={12}
                       value={formTenant.adminSenha}
                       onChange={(e) => setFormTenant({ ...formTenant, adminSenha: e.target.value })}
                       placeholder="Senha forte"
@@ -684,6 +697,20 @@ export const AdminBackofficeModal: React.FC<AdminBackofficeModalProps> = ({
           </div>
         )}
 
+        {tenantObras && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full shadow-2xl text-white max-h-[80vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-4">
+                <div><h3 className="text-sm font-bold">Ambientes de {tenantObras.tenant.nome}</h3><p className="mt-1 text-xs text-slate-400">Obras vinculadas a esta conta. Os dados permanecem isolados por organização.</p></div>
+                <button onClick={() => setTenantObras(null)} className="p-1 text-slate-400 hover:text-white" aria-label="Fechar"><X className="w-4 h-4" /></button>
+              </div>
+              <div className="mt-4 divide-y divide-slate-800">
+                {tenantObras.obras.length ? tenantObras.obras.map((obra) => <div key={obra.id} className="py-3 flex flex-wrap justify-between gap-2 text-xs"><div><p className="font-semibold text-white">{obra.nome}</p><p className="text-slate-400">Contrato: {obra.contrato || '—'} · Atualizada: {new Date(obra.updatedAt).toLocaleDateString('pt-BR')}</p></div><p className="text-slate-300">Ambiente ativo</p></div>) : <p className="py-6 text-center text-xs text-slate-400">Esta organização ainda não tem ambientes cadastrados.</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* MODAL: RESETAR SENHA DE USUÁRIO */}
         {modalResetSenha && (
           <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
@@ -697,8 +724,9 @@ export const AdminBackofficeModal: React.FC<AdminBackofficeModalProps> = ({
 
               <div className="mt-4">
                 <input
-                  type="text"
-                  placeholder="Digite a nova senha..."
+                  type="password"
+                  minLength={12}
+                  placeholder="Digite uma senha com pelo menos 12 caracteres..."
                   value={novaSenhaInput}
                   onChange={(e) => setNovaSenhaInput(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500"

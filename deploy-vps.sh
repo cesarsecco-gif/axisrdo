@@ -51,15 +51,34 @@ mkdir -p data certbot/conf certbot/www
 if [ ! -f .env ]; then
     echo "Gerando chave secreta JWT para o ambiente de produção..."
     RANDOM_SECRET=$(openssl rand -hex 32)
+    ADMIN_PASSWORD=$(openssl rand -hex 16)
     cat <<EOF > .env
 PORT=3000
 NODE_ENV=production
 ALLOW_NETWORK=true
 JWT_SECRET=${RANDOM_SECRET}
+PLATFORM_ADMIN_EMAIL=admin@axisconsplan.com.br
+PLATFORM_ADMIN_PASSWORD=${ADMIN_PASSWORD}
 DATABASE_URL="file:/app/data/axis_rdo.db"
 AXIS_DATA_DIR="/app/data"
 EOF
     echo "Arquivo .env criado com sucesso."
+    echo "Senha inicial do administrador da plataforma: ${ADMIN_PASSWORD}"
+    echo "Guarde esta senha em local seguro; ela não será exibida novamente."
+fi
+
+# Completar configurações seguras em instalações anteriores.
+if ! grep -q '^JWT_SECRET=' .env; then
+    echo "JWT_SECRET=$(openssl rand -hex 32)" >> .env
+fi
+if ! grep -q '^PLATFORM_ADMIN_EMAIL=' .env; then
+    echo "PLATFORM_ADMIN_EMAIL=admin@axisconsplan.com.br" >> .env
+fi
+if ! grep -q '^PLATFORM_ADMIN_PASSWORD=' .env; then
+    ADMIN_PASSWORD=$(openssl rand -hex 16)
+    echo "PLATFORM_ADMIN_PASSWORD=${ADMIN_PASSWORD}" >> .env
+    echo "Senha inicial do administrador da plataforma: ${ADMIN_PASSWORD}"
+    echo "Guarde esta senha em local seguro; ela não será exibida novamente."
 fi
 
 # 6. Compilar e subir os contêineres Docker

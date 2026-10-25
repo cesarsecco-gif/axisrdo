@@ -102,125 +102,18 @@ billingRouter.get('/subscription', authenticate, async (req: AuthRequest, res: R
 // -------------------------------------------------------------
 // 3. INICIAR CHECKOUT / PAGAMENTO (PIX OU CARTÃO)
 // -------------------------------------------------------------
-billingRouter.post(
-  '/checkout',
-  authenticate,
-  requireRole(['ADMIN']),
-  async (req: AuthRequest, res: Response) => {
-    try {
-      const { planId, billingCycle, paymentMethod } = req.body;
+billingRouter.post('/checkout', authenticate, requireRole(['ADMIN']), async (_req: AuthRequest, res: Response) => {
+  return res.status(503).json({ error: 'O pagamento online ainda não está configurado. Nenhuma cobrança foi criada.' });
+});
 
-      if (!['INDIVIDUAL', 'CORPORATIVO'].includes(planId)) {
-        return res.status(400).json({ error: 'Plano inválido.' });
-      }
-
-      const plano = PLANOS_CONFIG[planId as keyof typeof PLANOS_CONFIG];
-      const isYearly = billingCycle === 'yearly';
-      const valor = isYearly ? plano.precoAnual : plano.precoMensal;
-      const txId = `AXIS-TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-      if (paymentMethod === 'pix') {
-        // Código PIX Copia e Cola simulado / formatado pronto para gateway Asaas/MercadoPago
-        const pixCopiaECola = `00020126580014br.gov.bcb.pix0136axis-financeiro@axisconsultoria.com0204AXIS520400005303986540${valor.toFixed(2)}5802BR5925AXIS CONSULTORIA E PLAN6008CURITIBA62070503***6304ABCD`;
-
-        return res.json({
-          transactionId: txId,
-          planId,
-          billingCycle: isYearly ? 'anual' : 'mensal',
-          valor,
-          paymentMethod: 'pix',
-          pixCopiaECola,
-          qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCopiaECola)}`,
-          expiraEmMinutos: 30,
-        });
-      }
-
-      // Checkout por Cartão de Crédito
-      return res.json({
-        transactionId: txId,
-        planId,
-        billingCycle: isYearly ? 'anual' : 'mensal',
-        valor,
-        paymentMethod: 'credit_card',
-        status: 'PENDING_CARD_DETAILS',
-        mensagem: 'Gateway de pagamento pronto para processamento com token de cartão.',
-      });
-    } catch (error: any) {
-      return res.status(500).json({ error: 'Erro ao processar checkout.' });
-    }
-  }
-);
-
-// -------------------------------------------------------------
 // 4. ATIVAÇÃO / UPGRADE IMEDIATO DE PLANO (ADMIN)
 // -------------------------------------------------------------
-billingRouter.post(
-  '/upgrade',
-  authenticate,
-  requireRole(['ADMIN']),
-  async (req: AuthRequest, res: Response) => {
-    try {
-      const { planId } = req.body;
+billingRouter.post('/upgrade', authenticate, requireRole(['ADMIN']), async (_req: AuthRequest, res: Response) => {
+  return res.status(503).json({ error: 'A mudança de plano exige confirmação de pagamento ou ativação manual pela administração.' });
+});
 
-      if (!['INDIVIDUAL', 'CORPORATIVO'].includes(planId)) {
-        return res.status(400).json({ error: 'Plano selecionado inválido.' });
-      }
-
-      const tenantId = req.user!.tenantId;
-      const novoPlano = PLANOS_CONFIG[planId as keyof typeof PLANOS_CONFIG];
-
-      const tenantAtualizado = await prisma.tenant.update({
-        where: { id: tenantId },
-        data: {
-          plano: planId,
-          limiteUsuarios: novoPlano.limiteUsuarios,
-          limiteObras: novoPlano.limiteObras,
-          ativo: true,
-        },
-      });
-
-      return res.json({
-        success: true,
-        mensagem: `Plano atualizado com sucesso para ${novoPlano.nome}!`,
-        tenant: {
-          id: tenantAtualizado.id,
-          nome: tenantAtualizado.nome,
-          plano: tenantAtualizado.plano,
-          limiteUsuarios: tenantAtualizado.limiteUsuarios,
-          limiteObras: tenantAtualizado.limiteObras,
-        },
-      });
-    } catch (error: any) {
-      return res.status(500).json({ error: 'Erro ao atualizar plano da organização.' });
-    }
-  }
-);
-
-// -------------------------------------------------------------
 // 5. WEBHOOK DO GATEWAY DE PAGAMENTOS (ASAAS / MERCADO PAGO)
 // -------------------------------------------------------------
-billingRouter.post('/webhook', async (req, res: Response) => {
-  try {
-    const event = req.body;
-    // Exemplo de payload recebido pelo Asaas / Mercado Pago:
-    // event = { event: 'PAYMENT_RECEIVED', payment: { customer: '...', externalReference: 'tenant_id_cuid', value: 489.0 } }
-    const externalRef = event?.payment?.externalReference || event?.data?.metadata?.tenant_id;
-    const eventType = event?.event || event?.action;
-
-    if (externalRef && (eventType === 'PAYMENT_RECEIVED' || eventType === 'payment.created')) {
-      await prisma.tenant.update({
-        where: { id: externalRef },
-        data: {
-          ativo: true,
-          plano: 'CORPORATIVO',
-          limiteUsuarios: 10,
-          limiteObras: 9999,
-        },
-      });
-    }
-
-    return res.status(200).json({ received: true });
-  } catch (error) {
-    return res.status(200).json({ received: true, note: 'Webhook processado.' });
-  }
+billingRouter.post('/webhook', async (_req, res: Response) => {
+  return res.status(503).json({ error: 'Webhook indisponível até configurar e validar a assinatura do provedor.' });
 });

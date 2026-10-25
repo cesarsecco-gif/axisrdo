@@ -84,6 +84,7 @@ export function setupReliability(app:Express,ctx:any){
   guard(q);const {daily,weekly,secondary}=q.body;const current=settings();
   const max=q.body.max===undefined?current.max:q.body.max;
   if(!Number.isInteger(daily)||daily<1||daily>90||!Number.isInteger(weekly)||weekly<0||weekly>52||typeof secondary!=='string'||(secondary&&!path.isAbsolute(secondary))||!Number.isInteger(max)||max<0||max>1000)throw new Error('Retenção inválida ou destino sem caminho completo.');
+  if(ctx.commercial?.()&&secondary)throw Object.assign(new Error('Backups comerciais só podem ser gravados no ambiente da organização.'),{status:403});
   if(secondary&&[ctx.workspace(),directory()].some(p=>path.resolve(p).toLowerCase()===path.resolve(secondary).toLowerCase()))throw new Error('Escolha uma pasta diferente para a segunda cópia.');
   ctx.atom(configFile(),{daily,weekly,secondary,max});let applied=0;let outcome='';try{prune();applied=inventory().length;}catch(e:any){outcome='A retenção não pôde ser aplicada: '+message(e);}
   r.json({success:true,remaining:applied,warning:outcome});

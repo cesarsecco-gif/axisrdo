@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AxisLogo } from '../AxisLogo';
 import { authApi, AuthUser, TenantInfo } from '../../services/authApi';
 import {
@@ -26,6 +26,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
   const [mode, setMode] = useState<'login' | 'register' | 'admin_login'>('login');
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
+  const [selfSignup, setSelfSignup] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/health').then(r => r.json()).then(data => {
+      setSelfSignup(data.selfSignup !== false);
+      if (data.selfSignup === false) setMode('login');
+    }).catch(() => {});
+  }, []);
 
   // Login form
   const [email, setEmail] = useState('');
@@ -42,10 +50,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
     setLoading(true);
     setErro('');
     try {
-      const res = await authApi.login({ email, senha });
-      if (mode === 'admin_login' && !res.user.isSuperAdmin && res.user.role !== 'SUPERADMIN') {
-        throw new Error('Esta conta não possui privilégios de Gestão Master da Axis Consultoria.');
-      }
+      const res = await authApi.login({ email, senha, area: mode === 'admin_login' ? 'platform' : 'client' });
       onSuccess(res.user, res.tenant);
     } catch (err: any) {
       setErro(err.message || 'Falha ao autenticar.');
@@ -178,7 +183,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
               >
                 Área do Cliente
               </button>
-              <button
+              {selfSignup && <button
                 type="button"
                 onClick={() => { setMode('register'); setErro(''); }}
                 className={`flex-1 py-3.5 text-center border-b-2 transition ${
@@ -188,7 +193,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
                 }`}
               >
                 Nova Empresa
-              </button>
+              </button>}
               <button
                 type="button"
                 onClick={() => { setMode('admin_login'); setErro(''); }}
@@ -205,6 +210,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
 
             {/* Conteúdo do Formulário */}
             <div className="p-6 sm:p-7">
+              {!selfSignup && <div className="mb-4 rounded-xl border border-amber-700/50 bg-amber-950/30 p-3 text-xs text-amber-200">Novos acessos comerciais serão liberados após a integração do pagamento. A administração da plataforma pode cadastrar contas corporativas manualmente.</div>}
               {erro && (
                 <div className="mb-4 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs p-3 rounded-xl flex items-start gap-2">
                   <span className="font-bold">Aviso:</span>
@@ -237,7 +243,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder={mode === 'admin_login' ? 'admin@axisconsplan.com.br' : 'seu@email.com'}
+                        placeholder={mode === 'admin_login' ? 'E-mail de administrador da plataforma' : 'seu@email.com'}
                         className={`w-full pl-9 pr-3 py-2.5 bg-slate-800/90 border rounded-xl text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none transition ${
                           mode === 'admin_login'
                             ? 'border-slate-700 focus:border-amber-500'
@@ -365,10 +371,10 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onSuccess }) => {
                       <input
                         type="password"
                         required
-                        minLength={6}
+                        minLength={mode === 'register' ? 12 : undefined}
                         value={senha}
                         onChange={(e) => setSenha(e.target.value)}
-                        placeholder="Mínimo 6 dígitos"
+                        placeholder={mode === 'register' ? 'Mínimo 12 caracteres' : 'Sua senha'}
                         className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:border-sky-500 focus:outline-none"
                       />
                     </div>

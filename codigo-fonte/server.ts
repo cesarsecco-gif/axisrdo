@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { execFile } from 'node:child_process';
 import {setupReliability,VERSION} from './reliability';
 import {setupObras} from './obras';
@@ -16,13 +17,27 @@ import cookieParser from 'cookie-parser';
 import { authRouter } from './src/backend/authRoutes';
 import { billingRouter } from './src/backend/billingRoutes';
 import { adminRouter } from './src/backend/adminRoutes';
-import { initDatabase } from './src/backend/prisma';
+import { initDatabase, prisma } from './src/backend/prisma';
+import { getUserFromRequest, AuthRequest, AuthUser } from './src/backend/auth';
 
 const app = express();
 app.use((_req,res,next)=>{res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'self' blob:; base-uri 'self'");next();});
 const PORT = Number(process.env.PORT || 3000);
 const home = process.env.AXIS_DATA_DIR || process.env.DER_DATA_DIR || path.join(process.env.LOCALAPPDATA || os.homedir(), 'AXIS-RDO');
 fs.mkdirSync(home, {recursive:true});
+type TenantSession={tenantId:string;userId:string;home:string;workspace:string|null;revision:string};
+const tenantSessions=new AsyncLocalStorage<TenantSession>();
+const revisions=new Map<string,string>();
+const commercialMode=process.env.ALLOW_NETWORK==='true';
+const session=()=>tenantSessions.getStore();
+const dataHome=()=>session()?.home||home;
+const activeWorkspace=()=>{const ctx=session();return ctx?ctx.workspace:workspace;};
+const activeRevision=()=>session()?.revision||revision;
+function activateWorkspace(next:string|null){
+ const ctx=session();
+ if(ctx){ctx.workspace=next;ctx.revision=crypto.randomUUID();revisions.set(`${ctx.tenantId}:${next||'empty'}`,ctx.revision);return;}
+ atom(preference,{path:next});workspace=next;revision=crypto.randomUUID();
+}
 const preference = path.join(home, 'pasta-trabalho.json');
 // null means no obra is open. Without a saved preference, only an old install
 // that kept projeto.json in the data folder keeps using it.
@@ -36,8 +51,9 @@ function initialWorkspace():string|null{
 let workspace:string|null = initialWorkspace();
 let revision = crypto.randomUUID();
 function requireWorkspace():string{
-  if(!workspace)throw Object.assign(new Error('Nenhuma obra aberta. Crie ou abra uma obra.'),{status:409,code:'NO_WORKSPACE'});
-  return workspace;
+  const current=activeWorkspace();
+  if(!current)throw Object.assign(new Error('Nenhuma obra aberta. Crie ou abra uma obra.'),{status:409,code:'NO_WORKSPACE'});
+  return current;
 }
 const statePath = () => path.join(requireWorkspace(),'projeto.json');
 const CATALOGOS_IDS=['equipes','funcoes','equipamentos','placas','rodovias','trechos','estacas','lados','categorias','servicos','acoes'];
@@ -64,6 +80,11 @@ let projectCache:{file:string;stamp:string;value:any}|null=null;
 function fileStamp(f:string){const s=fs.statSync(f);return `${s.mtimeMs}|${s.size}|${s.ino}`;}
 function readProject(dir?:string) {
   const d=dir??requireWorkspace();
+  const ctx=session();
+  if(commercialMode&&ctx){
+    const root=path.resolve(ctx.home)+path.sep;
+    if(!path.resolve(d).startsWith(root))throw Object.assign(new Error('A obra não pertence à organização autenticada.'),{status:403});
+  }
   const f=path.join(d,'projeto.json');
   if (!fs.existsSync(d)) throw new Error('Pasta de trabalho indisponível. Reconecte o disco ou escolha outra pasta.');
   if (!fs.existsSync(f)) return null;
@@ -92,14 +113,49 @@ app.use('/api',(req,res,next)=>{
 });
 app.use(express.json({limit:'500mb'}));
 app.use(cookieParser());
+app.use('/api',async (req,res,next)=>{
+ if(!commercialMode)return next();
+ const publicPaths=['/health','/auth/login','/auth/register','/auth/logout','/billing/plans'];
+ if(publicPaths.includes(req.path))return next();
+ const tokenUser=getUserFromRequest(req);
+ if(!tokenUser)return res.status(401).json({error:'Acesso não autorizado. Faça login para continuar.'});
+ try{
+  const dbUser=await prisma.user.findUnique({where:{id:tokenUser.id},include:{tenant:true}});
+  if(!dbUser||!dbUser.ativo||!dbUser.tenant.ativo||dbUser.tenantId!==tokenUser.tenantId)
+    return res.status(403).json({error:'Esta conta ou organização está inativa. Contate o suporte.'});
+  const user:AuthUser={id:dbUser.id,tenantId:dbUser.tenantId,email:dbUser.email,nome:dbUser.nome,role:dbUser.role as AuthUser['role'],isSuperAdmin:dbUser.isSuperAdmin||dbUser.role==='SUPERADMIN',tenantNome:dbUser.tenant.nome,plano:dbUser.tenant.plano};
+  (req as AuthRequest).user=user;
+  if(user.role==='LEITOR'&&!['GET','HEAD','OPTIONS'].includes(req.method))return res.status(403).json({error:'Seu perfil tem acesso somente para leitura.'});
+  const managementPath=req.path.startsWith('/backups')||req.path==='/project/restore'||/^\/obras\/[^/]+\/(backup|duplicate|move)$/.test(req.path)||(/^\/obras\/[^/]+$/.test(req.path)&&req.method==='PUT');
+  if(user.role==='CAMPO'&&managementPath)return res.status(403).json({error:'Esta operação requer o perfil de Gestor ou Administrador da conta.'});
+  if(user.role==='CAMPO'&&req.path.endsWith('/backup'))return res.status(403).json({error:'A exportação do backup completo requer o perfil de Gestor ou Administrador.'});
+  const tenantHome=path.join(home,'tenants',crypto.createHash('sha256').update(dbUser.tenantId).digest('hex'));
+  fs.mkdirSync(tenantHome,{recursive:true});
+  let selected:string|null=null;
+  try{
+   const registry=JSON.parse(fs.readFileSync(path.join(tenantHome,'obras.json'),'utf8'));
+   const item=Array.isArray(registry.items)?registry.items.find((o:any)=>o.id===registry.activeId):null;
+   if(item&&typeof item.path==='string'){
+    const resolved=path.resolve(item.path),root=path.resolve(tenantHome)+path.sep;
+    if(resolved.startsWith(root)&&fs.existsSync(path.join(resolved,'projeto.json')))selected=resolved;
+   }
+  }catch{}
+  const revisionKey=`${dbUser.tenantId}:${selected||'empty'}`;
+  if(!revisions.has(revisionKey))revisions.set(revisionKey,crypto.randomUUID());
+  tenantSessions.run({tenantId:dbUser.tenantId,userId:dbUser.id,home:tenantHome,workspace:selected,revision:revisions.get(revisionKey)!},next);
+ }catch(error){
+  console.error('[Auth] Falha ao validar sessão:',error);
+  res.status(500).json({error:'Não foi possível validar a sessão.'});
+ }
+});
 app.use('/api/auth', authRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api/admin', adminRouter);
 let obras:{noteProject:(v:any)=>void;noteWorkspace:(v?:any)=>void}={noteProject:()=>{},noteWorkspace:()=>{}};
-const reliability=setupReliability(app,{workspace:()=>workspace,revision:()=>revision,read:readProject,valid,atom,mirror,afterWrite:(v:any)=>obras.noteProject(v)});
-obras=setupObras(app,{home,workspace:()=>workspace,revision:()=>revision,activate:(next:string|null)=>{atom(preference,{path:next});workspace=next;revision=crypto.randomUUID();},readProject,validProject:valid,mirror,atom,report:(e:any,action:string)=>reliability.error(e,action),catalogosDe:(d:any)=>semearCatalogos(d).config.catalogos||{}});
-app.get('/api/health',(_req,res)=>res.json({status:'ok',app:'axis-rdo',offline:true,version:VERSION}));
-app.get('/api/workspace',(_req,res)=>res.json({path:workspace,revision,contentRevision:reliability.hash()}));
+const reliability=setupReliability(app,{workspace:activeWorkspace,revision:activeRevision,commercial:()=>commercialMode,read:readProject,valid,atom,mirror,afterWrite:(v:any)=>obras.noteProject(v)});
+obras=setupObras(app,{home:dataHome,commercial:()=>commercialMode,workspace:activeWorkspace,revision:activeRevision,activate:activateWorkspace,readProject,validProject:valid,mirror,atom,report:(e:any,action:string)=>reliability.error(e,action),catalogosDe:(d:any)=>semearCatalogos(d).config.catalogos||{}});
+app.get('/api/health',(_req,res)=>res.json({status:'ok',app:'axis-rdo',offline:!commercialMode,commercial:commercialMode,selfSignup:!commercialMode,version:VERSION}));
+app.get('/api/workspace',(_req,res)=>res.json({path:activeWorkspace(),revision:activeRevision(),contentRevision:reliability.hash()}));
 app.get('/api/project',(_req,res)=>{try{const data=readProject();res.json(data?{...data,contentRevision:reliability.hash()}:null);}catch(e:any){res.status(e.status||500).json({error:reliability.error(e,'abrir-projeto')});}});
 app.put('/api/project',(req,res)=>{
   if(!valid(req.body))return res.status(400).json({error:'Projeto inválido.'});
@@ -186,6 +242,7 @@ app.get('/api/rdo/pdf',(req,res)=>{try{
  res.setHeader('Content-Type','application/pdf');res.setHeader('Content-Disposition',`inline; filename="RDO-${day.number}-${day.date}.pdf"`);res.setHeader('X-RDO-Pages',String(result.pageCount));res.send(result.bytes);
  }catch(e:any){res.status(e.status||400).json({error:reliability.error(e,'gerar-rdo-pdf')});}});
 app.post('/api/workspace/pick',(_req,res)=>{
+  if(commercialMode)return res.status(403).json({error:'Na versão comercial, as obras ficam armazenadas no ambiente seguro da organização.'});
   if(process.platform!=='win32')return res.status(501).json({error:'Digite o caminho completo da pasta abaixo.'});
   if(picking)return res.status(409).json({error:'Já existe uma janela de escolha de pasta aberta.'});
   picking=true;
@@ -197,12 +254,13 @@ app.post('/api/workspace/pick',(_req,res)=>{
   });
 });
 app.post('/api/workspace/switch',(req,res)=>{
-  if(req.body.revision!==revision)return res.status(409).json({error:'A pasta mudou. Reabra o aplicativo.'});
+  if(commercialMode)return res.status(403).json({error:'Na versão comercial, não é possível abrir pastas do servidor.'});
+  if(req.body.revision!==activeRevision())return res.status(409).json({error:'A pasta mudou. Reabra o aplicativo.'});
   const target=req.body.path;
   if(typeof target!=='string'||!path.isAbsolute(target)||!['copy','open'].includes(req.body.mode))return res.status(400).json({error:'Informe um caminho completo e escolha copiar ou abrir.'});
   try{
     const next=path.resolve(target);
-    if(workspace&&next===path.resolve(workspace))return res.json({path:workspace,revision});
+    if(activeWorkspace()&&next===path.resolve(activeWorkspace()!))return res.json({path:activeWorkspace(),revision:activeRevision()});
     let activeProject:any=null;
     if(req.body.mode==='copy'){
       if(fs.existsSync(path.join(next,'projeto.json')))return res.status(409).json({error:'Esta pasta já possui um projeto. Use Abrir projeto existente ou escolha outra pasta.'});
@@ -216,9 +274,9 @@ app.post('/api/workspace/switch',(req,res)=>{
       activeProject=opened;
     }
     fs.accessSync(next,fs.constants.W_OK);
-    atom(preference,{path:next});workspace=next;revision=crypto.randomUUID();
+    activateWorkspace(next);
     obras.noteWorkspace(activeProject);
-    res.json({path:workspace,revision});
+    res.json({path:activeWorkspace(),revision:activeRevision()});
   }catch(e:any){res.status(400).json({error:e.message});}
 });
 app.use('/api',(_req,res)=>res.status(404).json({error:'Recurso indisponível na versão offline.'}));

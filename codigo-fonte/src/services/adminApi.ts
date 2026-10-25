@@ -97,6 +97,8 @@ export const adminApi = {
     });
   },
 
+  getTenantWorks: async (id: string) => request<{ obras: { id: string; nome: string; contrato: string | null; updatedAt: string }[] }>(`/api/admin/tenants/${id}/obras`),
+
   getUsers: async (): Promise<{ users: UserAdminRow[] }> => {
     return request<{ users: UserAdminRow[] }>('/api/admin/users');
   },

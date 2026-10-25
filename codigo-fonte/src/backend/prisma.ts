@@ -157,14 +157,17 @@ export async function initDatabase() {
 async function seedMasterUser() {
   try {
     const { hashPassword } = await import('./auth');
+    const email = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase();
+    const defaultPassword = process.env.PLATFORM_ADMIN_PASSWORD;
+    if (!email || !defaultPassword || defaultPassword.length < 12) {
+      console.log('[Seed] Conta master ignorada. Configure PLATFORM_ADMIN_EMAIL e PLATFORM_ADMIN_PASSWORD (mínimo 12 caracteres).');
+      return;
+    }
 
-    // 1. Garantir Tenant Master da Axis
+    // Garantir o tenant da plataforma
     let axisTenant = await prisma.tenant.findFirst({
       where: {
-        OR: [
-          { slug: 'axis-master' },
-          { nome: { contains: 'Axis' } }
-        ]
+        slug: 'axis-master'
       }
     });
 
@@ -183,34 +186,15 @@ async function seedMasterUser() {
     }
 
     // 2. Garantir Usuário Gestor Master
-    const defaultPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'Axis@2026';
     const senhaHash = await hashPassword(defaultPassword);
-    const masterEmails = ['admin@axisconsplan.com.br', 'admin@axisconsultoria.com.br'];
-
-    for (const email of masterEmails) {
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (!existing) {
-        await prisma.user.create({
-          data: {
-            tenantId: axisTenant.id,
-            nome: 'Gestão Master Axis',
-            email,
-            senhaHash,
-            cargo: 'Diretor Geral',
-            role: 'SUPERADMIN',
-            isSuperAdmin: true,
-            ativo: true,
-          }
-        });
-        console.log(`[Seed] Usuário Master criado: ${email}`);
-      } else {
-        if (!existing.isSuperAdmin || existing.role !== 'SUPERADMIN') {
-          await prisma.user.update({
-            where: { id: existing.id },
-            data: { isSuperAdmin: true, role: 'SUPERADMIN' }
-          });
-        }
-      }
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (!existing) {
+      await prisma.user.create({ data: { tenantId: axisTenant.id, nome: 'Administrador da Plataforma', email, senhaHash, cargo: 'Administrador da Plataforma', role: 'SUPERADMIN', isSuperAdmin: true, ativo: true } });
+      console.log(`[Seed] Administrador da plataforma configurado: ${email}`);
+    } else if (existing.tenantId === axisTenant.id) {
+      await prisma.user.update({ where: { id: existing.id }, data: { isSuperAdmin: true, role: 'SUPERADMIN', ativo: true } });
+    } else {
+      throw new Error('PLATFORM_ADMIN_EMAIL já pertence a outra organização.');
     }
   } catch (err: any) {
     console.warn('[Seed] Aviso ao verificar/criar usuário master:', err?.message || err);

@@ -19,7 +19,9 @@ services:
       - PORT=3000
       - ALLOW_NETWORK=true
       - DATABASE_URL=file:/app/data/axis_rdo.db
-      - JWT_SECRET=${JWT_SECRET:-axis-rdo-secret-production-key-change-me}
+      - JWT_SECRET=${JWT_SECRET:?Configure JWT_SECRET no arquivo .env}
+      - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL:?Configure PLATFORM_ADMIN_EMAIL no arquivo .env}
+      - PLATFORM_ADMIN_PASSWORD=${PLATFORM_ADMIN_PASSWORD:?Configure PLATFORM_ADMIN_PASSWORD no arquivo .env}
       - AXIS_DATA_DIR=/app/data
     volumes:
       - axis_data:/app/data

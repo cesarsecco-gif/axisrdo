@@ -46,7 +46,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
     setErro('');
     try {
-      const res = await authApi.login({ email, senha });
+      const res = await authApi.login({ email, senha, area: mode === 'admin_login' ? 'platform' : 'client' });
       if (mode === 'admin_login' && !res.user.isSuperAdmin && res.user.role !== 'SUPERADMIN') {
         throw new Error('Esta conta não possui privilégios de Gestão Master da Axis Consultoria.');
       }
@@ -110,7 +110,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           }`}>
             {mode === 'login' && 'Área do Cliente — Acesse suas obras e diários'}
             {mode === 'register' && 'Cadastre sua empresa e comece a gerenciar'}
-            {mode === 'admin_login' && 'Acesso Master — Gestão Axis Consultoria e Planejamento'}
+            {mode === 'admin_login' && 'Acesso à Gestão da Plataforma Axis'}
           </p>
         </div>
 
@@ -189,7 +189,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={mode === 'admin_login' ? 'admin@axisconsplan.com.br' : 'seu@email.com'}
+                    placeholder={mode === 'admin_login' ? 'E-mail de administrador da plataforma' : 'seu@email.com'}
                     className={`w-full pl-9 pr-3 py-2.5 border rounded-xl text-xs sm:text-sm focus:outline-none transition ${
                       mode === 'admin_login'
                         ? 'bg-slate-800 border-slate-700 text-white focus:border-amber-500'
